@@ -2319,6 +2319,12 @@
             }
             
             showTyping(function() {
+                // Get values from qualification flow
+                var umbrellaVal = selectedUmbrella || '';
+                var structureVal = leadData.structure === 'Franchisor' ? 'franchisor' : (leadData.structure === 'Company-Operated Chain' ? 'companyOperated' : '');
+                var verticalVal = selectedVertical || '';
+                var hasPrefilledData = umbrellaVal || structureVal || verticalVal;
+                
                 var html = '<div class="message-content"><strong>Please share your contact details:</strong><div class="chat-form" id="contactFormContainer" autocomplete="off">';
                 html += '<div id="formErrors" style="color:#c53030;font-size:12px;padding:8px;background:#fed7d7;border-radius:6px;margin-bottom:8px;display:none;"></div>';
                 html += '<label class="form-label">Full Name *</label>';
@@ -2329,21 +2335,33 @@
                 html += '<input type="tel" id="contactPhone" placeholder="5551234567" autocomplete="off" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')">';
                 html += '<label class="form-label">Company Name *</label>';
                 html += '<input type="text" id="contactCompany" placeholder="Acme Corp" autocomplete="off">';
+                
+                // Industry - pre-select if available
                 html += '<label class="form-label">Industry *</label>';
                 html += '<select id="contactUmbrella" onchange="updateVerticalOptions()">';
                 html += '<option value="">Select Industry</option>';
-                html += '<option value="multiUnit">Multi-Unit Business</option>';
-                html += '<option value="criticalInfra">Critical Infrastructure Services</option>';
+                html += '<option value="multiUnit"' + (umbrellaVal === 'multiUnit' ? ' selected' : '') + '>Multi-Unit Business</option>';
+                html += '<option value="criticalInfra"' + (umbrellaVal === 'criticalInfra' ? ' selected' : '') + '>Critical Infrastructure Services</option>';
                 html += '</select>';
-                html += '<div id="structureContainer" style="display:none;">';
+                
+                // Structure - show if Multi-Unit, pre-select if available
+                html += '<div id="structureContainer" style="display:' + (umbrellaVal === 'multiUnit' ? 'block' : 'none') + ';">';
                 html += '<label class="form-label">Structure *</label>';
                 html += '<select id="contactStructure">';
                 html += '<option value="">Select Structure</option>';
-                html += '<option value="franchisor">Franchisor</option>';
-                html += '<option value="companyOperated">All Company-Operated</option>';
+                html += '<option value="franchisor"' + (structureVal === 'franchisor' ? ' selected' : '') + '>Franchisor</option>';
+                html += '<option value="companyOperated"' + (structureVal === 'companyOperated' ? ' selected' : '') + '>All Company-Operated</option>';
                 html += '</select></div>';
+                
+                // Vertical - will be populated by updateVerticalOptions
                 html += '<label class="form-label">Vertical *</label>';
                 html += '<select id="contactVertical"><option value="">Select Vertical</option></select>';
+                
+                // Note about pre-filled data
+                if (hasPrefilledData) {
+                    html += '<p style="font-size:11px;color:#666;margin-top:4px;margin-bottom:8px;">Based on your earlier selections</p>';
+                }
+                
                 html += '<button type="button" class="chat-form-btn" id="contactSubmitBtn">Submit</button></div></div>';
                 
                 var messages = document.getElementById('chatMessages');
@@ -2353,11 +2371,24 @@
                 messages.appendChild(msg);
                 msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 
-                // Attach click handler after DOM is ready
+                // Attach click handler and populate verticals after DOM is ready
                 setTimeout(function() {
                     var submitBtn = document.getElementById('contactSubmitBtn');
                     if (submitBtn) {
                         submitBtn.addEventListener('click', submitContact);
+                    }
+                    // Populate verticals if umbrella is pre-selected
+                    if (umbrellaVal) {
+                        updateVerticalOptions();
+                        // Pre-select vertical after options are populated
+                        if (verticalVal) {
+                            setTimeout(function() {
+                                var verticalSelect = document.getElementById('contactVertical');
+                                if (verticalSelect) {
+                                    verticalSelect.value = verticalVal;
+                                }
+                            }, 50);
+                        }
                     }
                 }, 50);
             });
