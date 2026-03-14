@@ -99,6 +99,7 @@
             text-transform: uppercase;
             transition: color 0.3s;
             position: relative;
+            cursor: pointer;
         }
 
         .nav.scrolled .nav-links a, .nav.scrolled .nav-links span {
@@ -118,6 +119,27 @@
 
         .nav-links a:hover::after, .nav-links span:hover::after {
             width: 100%;
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 5px;
+            z-index: 1001;
+        }
+
+        .hamburger span {
+            width: 25px;
+            height: 2px;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .nav.scrolled .hamburger span {
+            background: var(--purple-dark);
         }
 
         /* Hero Section */
@@ -1132,6 +1154,40 @@
         @media (max-width: 768px) {
             .nav-links {
                 display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: rgba(74, 44, 90, 0.98);
+                flex-direction: column;
+                padding: 20px;
+                gap: 0;
+            }
+
+            .nav-links.open {
+                display: flex;
+            }
+
+            .nav-links li {
+                padding: 15px 0;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+
+            .nav-links li:last-child {
+                border-bottom: none;
+            }
+
+            .nav.scrolled .nav-links {
+                background: rgba(255, 255, 255, 0.98);
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }
+
+            .nav.scrolled .nav-links li {
+                border-bottom-color: rgba(0,0,0,0.1);
+            }
+
+            .hamburger {
+                display: flex;
             }
 
             .criteria-grid {
@@ -1169,12 +1225,17 @@
     <!-- Navigation -->
     <nav class="nav" id="nav">
         <span class="nav-logo" onclick="document.getElementById('top').scrollIntoView({behavior:'smooth'})">Bird Dog Capital</span>
-        <ul class="nav-links">
-            <li><span onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">About</span></li>
-            <li><span onclick="document.getElementById('criteria').scrollIntoView({behavior:'smooth'})">Criteria</span></li>
-            <li><span onclick="document.getElementById('team').scrollIntoView({behavior:'smooth'})">Team</span></li>
-            <li><span onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Contact</span></li>
+        <ul class="nav-links" id="navLinks">
+            <li><span onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'});closeMenu()">About</span></li>
+            <li><span onclick="document.getElementById('criteria').scrollIntoView({behavior:'smooth'});closeMenu()">Criteria</span></li>
+            <li><span onclick="document.getElementById('team').scrollIntoView({behavior:'smooth'});closeMenu()">Team</span></li>
+            <li><span onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'});closeMenu()">Contact</span></li>
         </ul>
+        <div class="hamburger" id="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
     </nav>
 
     <!-- Hero Section -->
@@ -1476,6 +1537,17 @@
     </div>
 
     <script>
+        // Mobile menu toggle
+        function toggleMenu() {
+            var navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('open');
+        }
+
+        function closeMenu() {
+            var navLinks = document.getElementById('navLinks');
+            navLinks.classList.remove('open');
+        }
+
         // Navigation scroll effect
         var nav = document.getElementById('nav');
         window.addEventListener('scroll', function() {
