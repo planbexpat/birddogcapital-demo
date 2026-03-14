@@ -2471,6 +2471,34 @@
                 vertical: vertical
             };
             
+            // Send to n8n webhook
+            var webhookData = {
+                timestamp: new Date().toISOString(),
+                name: name,
+                email: email,
+                phone: validation.formattedPhone || '',
+                company: company,
+                industry: umbrella === 'multiUnit' ? 'Multi-Unit Business' : 'Critical Infrastructure',
+                structure: structure === 'franchisor' ? 'Franchisor' : (structure === 'companyOperated' ? 'Company-Operated' : 'N/A'),
+                vertical: vertical === 'food' ? 'Food Service' : (vertical === 'nonFood' ? 'Non-Food Services' : (vertical === 'telecom' ? 'Telecommunications' : (vertical === 'power' ? 'Power/Electrical' : (vertical === 'water' ? 'Water/Wastewater' : vertical)))),
+                ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : 'Not specified',
+                location: leadData.location || 'Not specified',
+                qualified: isEligible ? 'Yes' : 'No',
+                source: 'Website Chat Widget',
+                status: 'New'
+            };
+            
+            // POST to n8n webhook (fire and forget)
+            fetch('https://n8n.planbexpat.com/webhook/bdc-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookData)
+            }).then(function(response) {
+                console.log('Webhook response:', response.status);
+            }).catch(function(error) {
+                console.log('Webhook error (non-blocking):', error);
+            });
+            
             addUserMessage(name + ' - ' + email);
             hasSubmittedContact = true;
             
