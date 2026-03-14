@@ -909,24 +909,36 @@
         .message-options {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 6px;
+            margin-top: 10px;
         }
 
         .option-btn {
-            padding: 10px 16px;
+            padding: 8px 14px;
             background: white;
             border: 1px solid var(--purple-mid);
             color: var(--purple-mid);
-            border-radius: 20px;
+            border-radius: 18px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: all 0.2s;
+            line-height: 1.2;
         }
 
         .option-btn:hover {
             background: var(--purple-mid);
             color: white;
+        }
+
+        .option-btn.primary-cta {
+            background: var(--purple-light);
+            color: white;
+            border-color: var(--purple-light);
+        }
+
+        .option-btn.primary-cta:hover {
+            background: var(--purple-mid);
+            border-color: var(--purple-mid);
         }
 
         .chat-input-area {
@@ -1005,8 +1017,25 @@
         .chat-form {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             margin-top: 12px;
+        }
+
+        .chat-form.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--purple-dark);
+            margin-bottom: -4px;
+            margin-top: 4px;
+        }
+
+        .form-label:first-child {
+            margin-top: 0;
         }
 
         .chat-form input, .chat-form select {
@@ -1014,6 +1043,11 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 14px;
+        }
+
+        .chat-form input:focus, .chat-form select:focus {
+            outline: none;
+            border-color: var(--purple-mid);
         }
 
         .chat-form-btn {
@@ -1025,10 +1059,16 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
+            margin-top: 8px;
         }
 
         .chat-form-btn:hover {
             background: var(--purple-dark);
+        }
+
+        .chat-form-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         /* Checkbox styles */
@@ -1638,28 +1678,26 @@
                 // Too short or too long
                 if (name.length < 2 || name.length > 100) return true;
                 
+                // NO symbols allowed (only letters, spaces, hyphens, apostrophes, periods)
+                if (/[^a-zA-Z\s\-'.]/.test(name)) return true;
+                
+                // Must have at least 2 letters
+                const letterCount = (name.match(/[a-zA-Z]/g) || []).length;
+                if (letterCount < 2) return true;
+                
                 // Check for keyboard mash patterns (consecutive same characters)
                 if (/(.)\1{3,}/.test(name)) return true;
                 
                 // Check for random character sequences (no vowels)
                 const vowelCount = (name.match(/[aeiouAEIOU]/g) || []).length;
-                const letterCount = (name.match(/[a-zA-Z]/g) || []).length;
                 if (letterCount > 5 && vowelCount === 0) return true;
-                
-                // Check for excessive numbers in name
-                const numberCount = (name.match(/[0-9]/g) || []).length;
-                if (numberCount > 2) return true;
                 
                 // Check for random consonant clusters that don't exist in English
                 const badPatterns = /[bcdfghjklmnpqrstvwxyz]{5,}/i;
                 if (badPatterns.test(name)) return true;
                 
-                // Check for only special characters or numbers
-                if (!/[a-zA-Z]/.test(name)) return true;
-                
-                // Check ratio of letters to total characters
-                const totalChars = name.replace(/\s/g, '').length;
-                if (letterCount / totalChars < 0.7) return true;
+                // Name should have at least one space (first + last name)
+                if (name.trim().indexOf(' ') === -1) return true;
                 
                 return false;
             },
@@ -1746,11 +1784,19 @@
             validateLead: function(lead) {
                 const errors = [];
                 
-                if (this.isJunkName(lead.name)) {
+                if (!lead.name || lead.name.trim().length < 2) {
+                    errors.push('Please enter your full name');
+                } else if (/[^a-zA-Z\s\-'.]/.test(lead.name)) {
+                    errors.push('Name can only contain letters, spaces, hyphens, and apostrophes (no numbers or symbols)');
+                } else if (lead.name.trim().indexOf(' ') === -1) {
+                    errors.push('Please enter your first and last name');
+                } else if (this.isJunkName(lead.name)) {
                     errors.push('Please provide a valid name');
                 }
                 
-                if (this.isJunkEmail(lead.email)) {
+                if (!lead.email || lead.email.trim().length === 0) {
+                    errors.push('Please enter your email address');
+                } else if (this.isJunkEmail(lead.email)) {
                     errors.push('Please provide a valid email address');
                 }
                 
@@ -1781,6 +1827,8 @@
         var selectedVertical = null;
         var leadData = {};
         var isEligible = false;
+        var hasSubmittedContact = false;
+        var hasCompletedEligibility = false; // Tracks if user went through eligibility (pass or fail)
         
         // KNOWLEDGE BASE from Prospectus
         var knowledgeBase = {
@@ -1826,6 +1874,8 @@
             selectedVertical = null;
             leadData = {};
             isEligible = false;
+            hasSubmittedContact = false;
+            hasCompletedEligibility = false;
             lockChatInput();
         }
         
@@ -1849,7 +1899,7 @@
                 
                 options.forEach(function(opt) {
                     var btn = document.createElement('button');
-                    btn.className = 'option-btn';
+                    btn.className = 'option-btn' + (opt.primary ? ' primary-cta' : '');
                     btn.textContent = opt.text;
                     btn.onclick = function() {
                         var allBtns = optDiv.querySelectorAll('.option-btn');
@@ -1867,7 +1917,8 @@
             }
             
             messages.appendChild(msg);
-            messages.scrollTop = messages.scrollHeight;
+            // Scroll so new message is at top of visible area
+            msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         function addUserMessage(text) {
@@ -1895,50 +1946,70 @@
             }, delay);
         }
         
+        // Helper: Get appropriate CTA button based on user state
+        function getContactOrFitButton() {
+            if (hasSubmittedContact) {
+                return null; // Already submitted contact
+            } else if (isEligible) {
+                return { text: "Leave my contact info", action: function() { showContactForm(); }, primary: true };
+            } else if (hasCompletedEligibility) {
+                return null; // Went through eligibility but didn't qualify - no CTA
+            } else {
+                return { text: "See if there's a fit", action: function() { showOwnerFlow(); } };
+            }
+        }
+        
         // INFO MENU
         function showInfoMenu() {
             addUserMessage("Learn about Bird Dog");
             showTyping(function() {
-                addBotMessage('Bird Dog Capital is a unique independent sponsor combining principal investing with strategic consulting.<br><br>We focus on specific opportunities. <strong>What would you like to explore?</strong>', [
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
-                    { text: "See if there's a fit →", action: function() { showOwnerFlow(); } }
-                ]);
+                var options = [
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } },
+                    { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('Bird Dog Capital is a unique independent sponsor combining principal investing with strategic consulting.<br><br>We focus on Multi-Unit businesses and Critical Infrastructure Services. <strong>What would you like to explore?</strong>', options);
             });
         }
         
         function showIndustryInfo() {
-            addUserMessage("What industries?");
+            addUserMessage("Our industries");
             showTyping(function() {
-                addBotMessage('<strong>We focus on two sectors:</strong><br><br><strong>1. Multi-Unit Businesses</strong><br>Franchisors and corporate-owned chains in food (restaurants, QSR, fast casual) and non-food (fitness, spa, pet services, home services, lawn care, automotive, and more).<br><br><strong>2. Critical Infrastructure Services</strong><br>Telecom, power/electrical, and water/wastewater services.<br><br>Our team has worked with 50+ brands and 30,000+ units with $40B+ in system-wide revenue.', [
-                    { text: "McAlister's case study", action: function() { showMcAlisterCase(); } },
-                    { text: "Track Utilities case study", action: function() { showTrackCase(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
-                ]);
+                var options = [
+                    { text: "Multi-Unit: Food", action: function() { showFoodVertical(); } },
+                    { text: "Multi-Unit: Non-Food", action: function() { showNonFoodVertical(); } },
+                    { text: "Critical Infrastructure", action: function() { showInfrastructureInfo(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('<strong>Our Focus Industries:</strong><br><br><strong>1. Multi-Unit Businesses</strong><br>Franchisors and corporate-owned systems in food and non-food sectors<br><br><strong>2. Critical Infrastructure Services</strong><br>Telecom, power/electrical, water/wastewater<br><br><strong>Our Experience:</strong><br>50+ brands | 30,000+ units | $40B+ system-wide revenue', options);
             });
         }
         
         function showCriteriaInfo() {
             addUserMessage("Investment criteria");
             showTyping(function() {
-                addBotMessage('<strong>Our Investment Criteria:</strong><br><br>• <strong>EBITDA:</strong> Minimum $5 million (with some exceptions)<br>• <strong>Location:</strong> U.S. or Canada only<br>• <strong>Growth:</strong> Attractive growth prospects<br>• <strong>Cash Flow:</strong> High free cash flow conversion<br>• <strong>Management:</strong> Experienced, proven track record, high integrity<br><br><strong>Transaction Types:</strong><br>• Management/Leveraged Buyouts<br>• Corporate Divestitures<br>• Family Succession/Recapitalizations<br>• Growth Equity', [
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
-                ]);
+                var options = [
+                    { text: "Our industries", action: function() { showIndustryInfo(); } },
+                    { text: "Transaction types", action: function() { showTransactionTypes(); } },
+                    { text: "Management requirements", action: function() { showManagementRequirements(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('<strong>Investment Criteria:</strong><br><br><strong>Company Characteristics:</strong><br>• Minimum $5 million EBITDA (with some exceptions)<br>• Attractive growth prospects<br>• High free cash flow conversion<br>• Based in U.S. or Canada<br><br><strong>Industries:</strong><br>• Multi-Unit (franchisors, corporate-owned systems)<br>• Critical Infrastructure Services', options);
             });
         }
         
         function showTrackRecord() {
             addUserMessage("Track record");
             showTyping(function() {
-                addBotMessage('<strong>Proven Results:</strong><br><br>• <strong>McAlister\'s Deli:</strong> 5.3x ROI - More than doubled EBITDA<br>• <strong>Track Utilities:</strong> 5.1x ROI, 235% IRR - Doubled EBITDA<br>• <strong>Multi-Unit Portfolio:</strong> Up to 8.7x ROI<br>• <strong>Excel Utility Contractors:</strong> Active platform with strategic add-ons<br><br><strong>Combined Team Experience:</strong><br>$75B+ transaction value | 400+ deals | 200+ years experience', [
+                addBotMessage('<strong>Proven Results:</strong><br><br>• <strong>McAlister\'s Deli:</strong> 5.3x ROI<br>• <strong>Track Utilities:</strong> 5.1x ROI, 235% IRR<br>• <strong>Multi-Unit Portfolio:</strong> Up to 8.7x ROI<br><br><strong>Combined Team Stats:</strong><br>$75B+ transaction value | $1B+ equity deployed<br>400+ deals | 200+ years experience', [
                     { text: "McAlister's deep dive", action: function() { showMcAlisterCase(); } },
                     { text: "Track Utilities deep dive", action: function() { showTrackCase(); } },
-                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                    { text: "Portfolio returns", action: function() { showPortfolioReturns(); } },
                     { text: "Back to menu", action: function() { showInfoMenu(); } }
                 ]);
             });
@@ -1947,12 +2018,14 @@
         function showTeamInfo() {
             addUserMessage("Meet the team");
             showTyping(function() {
-                addBotMessage('<strong>Leadership Team:</strong><br><br><strong>Jake LaJoie</strong> - Managing Partner<br>20+ years PE experience, former CFO of Shakey\'s USA<br>jake@birddogcapitalgrp.com | (404) 909-7657<br><br><strong>Craig Colby</strong> - Senior Operating Partner<br>20+ years restaurant experience, former Burger King/Red Robin franchisee<br>craig@birddogcapitalgrp.com | (302) 766-0074', [
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
-                ]);
+                var options = [
+                    { text: "Jake's background", action: function() { showJakeBio(); } },
+                    { text: "Craig's background", action: function() { showCraigBio(); } },
+                    { text: "Team stats", action: function() { showTeamStats(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('<strong>Leadership Team:</strong><br><br><strong>Jake LaJoie</strong> - Managing Partner<br>20+ years PE experience<br>(404) 909-7657<br><br><strong>Craig Colby</strong> - Senior Operating Partner<br>20+ years restaurant operations<br>(302) 766-0074<br><br>Atlanta, Georgia', options);
             });
         }
         
@@ -2018,12 +2091,14 @@
         }
         
         function showFranchiseeNotAFit() {
+            hasCompletedEligibility = true; // Mark that user went through eligibility
             addUserMessage("I'm an individual franchisee");
             showTyping(function() {
                 addBotMessage('Thank you for your interest. Bird Dog Capital focuses on <strong>franchisor-level acquisitions</strong> — acquiring brands, royalty streams, and intellectual property — rather than individual franchise locations.<br><br>We don\'t invest in individual franchisee operations, but feel free to explore our approach and case studies.', [
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } },
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                    { text: "How we're different", action: function() { showPhilosophy(); } }
                 ]);
             });
         }
@@ -2066,7 +2141,7 @@
             msg.className = 'message bot';
             msg.innerHTML = '<div class="message-content"><strong>What\'s the approximate annual EBITDA?</strong><div class="slider-container"><input type="range" min="1" max="50" value="5" id="ebitdaSlider" oninput="updateEbitdaDisplay(this.value)"><div class="slider-value" id="ebitdaValue">$5M</div></div><p style="font-size:12px;color:#888;margin-top:8px;">Our typical minimum is $5M EBITDA</p><button class="chat-form-btn" onclick="submitEbitda()">Continue</button></div>';
             messages.appendChild(msg);
-            messages.scrollTop = messages.scrollHeight;
+            msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         
         function updateEbitdaDisplay(val) {
@@ -2104,14 +2179,25 @@
             var meetsEbitda = leadData.ebitda >= 5;
             var inTargetVertical = selectedUmbrella !== null && selectedVertical !== null;
             
+            hasCompletedEligibility = true; // Mark that user went through eligibility
+            
             if (meetsEbitda && inTargetVertical) {
                 isEligible = true;
                 unlockChatInput();
                 addBotMessage('<strong>Great news!</strong> Based on what you\'ve shared, this looks like a strong potential fit for Bird Dog Capital.<br><br>• <strong>Industry:</strong> ' + leadData.umbrella + ' - ' + leadData.vertical + '<br>• <strong>EBITDA:</strong> $' + leadData.ebitda + 'M<br>• <strong>Location:</strong> ' + leadData.location + '<br><br>You now have full chat access. We\'d love to schedule a confidential conversation.', [
-                    { text: "Leave my contact info", action: function() { showContactForm(); } },
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "Ask a question", action: function() { enableQualifiedFreeform(); } }
+                    { text: "Leave my contact info", action: function() { showContactForm(); }, primary: true },
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } },
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } }
                 ]);
+                showTyping(function() {
+                    addBotMessage('More to explore:', [
+                        { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
+                        { text: "How we're different", action: function() { showPhilosophy(); } },
+                        { text: "Our industries", action: function() { showIndustryInfo(); } },
+                        { text: "Deal structure", action: function() { showDealStructure(); } }
+                    ]);
+                }, 500);
             } else if (!meetsEbitda && inTargetVertical) {
                 // Near miss - right industry, under EBITDA threshold
                 addBotMessage('Thank you for your interest. Our typical focus is on businesses with $5M+ EBITDA, though we do consider strategic exceptions for high-growth opportunities.<br><br>If you\'d like us to keep you in mind for the future, you can leave your basic info below.', [
@@ -2122,22 +2208,26 @@
         }
         
         function showNotAFit(reason) {
+            hasCompletedEligibility = true; // Mark that user went through eligibility
+            
             if (reason === 'industry') {
                 addUserMessage("Other");
                 showTyping(function() {
                     addBotMessage('Thank you for your interest. Bird Dog Capital focuses specifically on:<br><br>• <strong>Multi-Unit:</strong> Franchisors and corporate-owned chains (food service, fitness, spa, pet services, home services, etc.)<br><br>• <strong>Critical Infrastructure:</strong> Telecom, power/electrical, and water/wastewater services<br><br>Feel free to explore our approach and case studies to learn more about what we do.', [
-                        { text: "See case studies", action: function() { showTrackRecord(); } },
-                        { text: "How we're different", action: function() { showPhilosophy(); } },
-                        { text: "Back to menu", action: function() { showInfoMenu(); } }
+                        { text: "Our approach", action: function() { showApproach(); } },
+                        { text: "Case studies", action: function() { showTrackRecord(); } },
+                        { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                        { text: "How we're different", action: function() { showPhilosophy(); } }
                     ]);
                 });
             } else if (reason === 'location') {
                 addUserMessage("Other location");
                 showTyping(function() {
-                    addBotMessage('Thank you for your interest. Bird Dog Capital currently focuses on businesses based in the <strong>United States or Canada</strong> only.<br><br>Feel free to learn more about our approach.', [
-                        { text: "See case studies", action: function() { showTrackRecord(); } },
-                        { text: "How we're different", action: function() { showPhilosophy(); } },
-                        { text: "Start over", action: function() { resetChat(); startChat(); } }
+                    addBotMessage('Thank you for your interest. Bird Dog Capital currently focuses on businesses based in the <strong>United States or Canada</strong> only.<br><br>Feel free to explore our approach and learn more about what we do.', [
+                        { text: "Our approach", action: function() { showApproach(); } },
+                        { text: "Case studies", action: function() { showTrackRecord(); } },
+                        { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                        { text: "How we're different", action: function() { showPhilosophy(); } }
                     ]);
                 });
             }
@@ -2145,11 +2235,21 @@
         
         // LIMITED CONTACT FORM - For near-misses (right industry, under EBITDA)
         function showLimitedContactForm() {
+            if (hasSubmittedContact) {
+                addBotMessage('You\'ve already submitted your contact information. We\'ll reach out if an opportunity arises.', [
+                    { text: "Learn more about us", action: function() { showInfoMenu(); } }
+                ]);
+                return;
+            }
+            
             showTyping(function() {
-                var html = '<div class="message-content"><strong>Leave your info for future opportunities:</strong><br><br><p style="font-size:12px;color:#666;margin-bottom:12px;">We\'ll reach out if an opportunity arises that matches your profile.</p><div class="chat-form">';
-                html += '<input type="text" id="contactName" placeholder="Your name">';
-                html += '<input type="email" id="contactEmail" placeholder="Email address">';
-                html += '<input type="text" id="contactCompany" placeholder="Company name">';
+                var html = '<div class="message-content"><strong>Leave your info for future opportunities:</strong><br><br><p style="font-size:12px;color:#666;margin-bottom:12px;">We\'ll reach out if an opportunity arises that matches your profile.</p><div class="chat-form" id="limitedContactFormContainer">';
+                html += '<label class="form-label">Full Name *</label>';
+                html += '<input type="text" id="limitedContactName" placeholder="John Smith">';
+                html += '<label class="form-label">Email Address *</label>';
+                html += '<input type="email" id="limitedContactEmail" placeholder="john@company.com">';
+                html += '<label class="form-label">Company Name</label>';
+                html += '<input type="text" id="limitedContactCompany" placeholder="Acme Corp">';
                 html += '<button class="chat-form-btn" onclick="submitLimitedContact()">Submit</button></div></div>';
                 
                 var messages = document.getElementById('chatMessages');
@@ -2157,19 +2257,19 @@
                 msg.className = 'message bot';
                 msg.innerHTML = html;
                 messages.appendChild(msg);
-                messages.scrollTop = messages.scrollHeight;
+                msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
         
         function submitLimitedContact() {
-            var name = document.getElementById('contactName').value;
-            var email = document.getElementById('contactEmail').value;
-            var company = document.getElementById('contactCompany').value;
-            
-            if (!name || name.length < 2) {
-                alert('Please enter your name.');
+            // Prevent double submission
+            if (hasSubmittedContact) {
                 return;
             }
+            
+            var name = document.getElementById('limitedContactName').value.trim();
+            var email = document.getElementById('limitedContactEmail').value.trim();
+            var company = document.getElementById('limitedContactCompany').value.trim();
             
             var validation = LeadValidator.validateLead({ name: name, email: email, phone: null });
             
@@ -2177,6 +2277,14 @@
                 alert(validation.errors.join('\n'));
                 return;
             }
+            
+            // Disable form immediately
+            var formContainer = document.getElementById('limitedContactFormContainer');
+            if (formContainer) {
+                formContainer.classList.add('disabled');
+            }
+            
+            hasSubmittedContact = true;
             
             leadData.contact = { 
                 name: name, 
@@ -2203,41 +2311,55 @@
         
         // CONTACT FORM
         function showContactForm() {
+            if (hasSubmittedContact) {
+                addBotMessage('You\'ve already submitted your contact information. Our team will be in touch within 48 hours.', [
+                    { text: "Explore more", action: function() { enableQualifiedFreeform(); } }
+                ]);
+                return;
+            }
+            
             showTyping(function() {
-                var multiSelected = selectedUmbrella === 'multiUnit' ? ' selected' : '';
-                var infraSelected = selectedUmbrella === 'criticalInfra' ? ' selected' : '';
-                var franchisorSelected = leadData.structure === 'Franchisor' ? ' selected' : '';
-                var companyOpSelected = leadData.structure === 'Company-Operated Chain' ? ' selected' : '';
-                
-                var html = '<div class="message-content"><strong>Please share your contact details:</strong><div class="chat-form">';
-                html += '<input type="text" id="contactName" placeholder="Your name">';
-                html += '<input type="email" id="contactEmail" placeholder="Email address">';
-                html += '<input type="tel" id="contactPhone" placeholder="Phone (optional)">';
-                html += '<input type="text" id="contactCompany" placeholder="Company name">';
+                var html = '<div class="message-content"><strong>Please share your contact details:</strong><div class="chat-form" id="contactFormContainer" autocomplete="off">';
+                html += '<div id="formErrors" style="color:#c53030;font-size:12px;padding:8px;background:#fed7d7;border-radius:6px;margin-bottom:8px;display:none;"></div>';
+                html += '<label class="form-label">Full Name *</label>';
+                html += '<input type="text" id="contactName" placeholder="John Smith" autocomplete="off">';
+                html += '<label class="form-label">Email Address *</label>';
+                html += '<input type="email" id="contactEmail" placeholder="john@company.com" autocomplete="off">';
+                html += '<label class="form-label">Phone (optional)</label>';
+                html += '<input type="tel" id="contactPhone" placeholder="5551234567" autocomplete="off" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')">';
+                html += '<label class="form-label">Company Name *</label>';
+                html += '<input type="text" id="contactCompany" placeholder="Acme Corp" autocomplete="off">';
+                html += '<label class="form-label">Industry *</label>';
                 html += '<select id="contactUmbrella" onchange="updateVerticalOptions()">';
-                html += '<option value="">Select Industry Umbrella</option>';
-                html += '<option value="multiUnit"' + multiSelected + '>Multi-Unit Business</option>';
-                html += '<option value="criticalInfra"' + infraSelected + '>Critical Infrastructure Services</option>';
+                html += '<option value="">Select Industry</option>';
+                html += '<option value="multiUnit">Multi-Unit Business</option>';
+                html += '<option value="criticalInfra">Critical Infrastructure Services</option>';
                 html += '</select>';
-                html += '<div id="structureContainer" style="display:' + (selectedUmbrella === 'multiUnit' ? 'block' : 'none') + ';">';
+                html += '<div id="structureContainer" style="display:none;">';
+                html += '<label class="form-label">Structure *</label>';
                 html += '<select id="contactStructure">';
                 html += '<option value="">Select Structure</option>';
-                html += '<option value="franchisor"' + franchisorSelected + '>Franchisor</option>';
-                html += '<option value="companyOperated"' + companyOpSelected + '>All Company-Operated</option>';
+                html += '<option value="franchisor">Franchisor</option>';
+                html += '<option value="companyOperated">All Company-Operated</option>';
                 html += '</select></div>';
+                html += '<label class="form-label">Vertical *</label>';
                 html += '<select id="contactVertical"><option value="">Select Vertical</option></select>';
-                html += '<button class="chat-form-btn" onclick="submitContact()">Submit</button></div></div>';
+                html += '<button type="button" class="chat-form-btn" id="contactSubmitBtn">Submit</button></div></div>';
                 
                 var messages = document.getElementById('chatMessages');
                 var msg = document.createElement('div');
                 msg.className = 'message bot';
                 msg.innerHTML = html;
                 messages.appendChild(msg);
-                messages.scrollTop = messages.scrollHeight;
+                msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 
-                if (selectedUmbrella) {
-                    setTimeout(function() { updateVerticalOptions(); }, 100);
-                }
+                // Attach click handler after DOM is ready
+                setTimeout(function() {
+                    var submitBtn = document.getElementById('contactSubmitBtn');
+                    if (submitBtn) {
+                        submitBtn.addEventListener('click', submitContact);
+                    }
+                }, 50);
             });
         }
         
@@ -2260,38 +2382,83 @@
                 verticalSelect.innerHTML += '<option value="power">Power / Electrical</option>';
                 verticalSelect.innerHTML += '<option value="water">Water / Wastewater</option>';
             }
-            
-            if (selectedVertical) {
-                verticalSelect.value = selectedVertical;
+        }
+        
+        function showFormError(msg) {
+            var errDiv = document.getElementById('formErrors');
+            if (errDiv) {
+                errDiv.textContent = msg;
+                errDiv.style.display = 'block';
+                errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                alert(msg);
+            }
+        }
+        
+        function clearFormError() {
+            var errDiv = document.getElementById('formErrors');
+            if (errDiv) {
+                errDiv.style.display = 'none';
             }
         }
         
         function submitContact() {
-            var name = document.getElementById('contactName').value;
-            var email = document.getElementById('contactEmail').value;
-            var phone = document.getElementById('contactPhone').value;
-            var company = document.getElementById('contactCompany').value;
+            console.log('submitContact called');
+            clearFormError();
+            
+            // Prevent double submission
+            if (hasSubmittedContact) {
+                console.log('Already submitted, returning');
+                return;
+            }
+            
+            var name = document.getElementById('contactName').value.trim();
+            var email = document.getElementById('contactEmail').value.trim();
+            var phone = document.getElementById('contactPhone').value.trim();
+            var company = document.getElementById('contactCompany').value.trim();
             var umbrella = document.getElementById('contactUmbrella').value;
             var vertical = document.getElementById('contactVertical').value;
             var structureEl = document.getElementById('contactStructure');
             var structure = structureEl ? structureEl.value : '';
             
+            console.log('Name:', name);
+            console.log('Email:', email);
+            console.log('Phone:', phone);
+            console.log('Company:', company);
+            console.log('Umbrella:', umbrella);
+            console.log('Vertical:', vertical);
+            console.log('Structure:', structure);
+            
+            // Validate required fields
+            if (!company) {
+                showFormError('Please enter your company name.');
+                return;
+            }
+            
             var validation = LeadValidator.validateLead({ name: name, email: email, phone: phone || null });
+            console.log('Validation isValid:', validation.isValid);
+            console.log('Validation errors:', validation.errors);
             
             if (!validation.isValid) {
-                alert(validation.errors.join('\n'));
+                showFormError(validation.errors.join('. '));
                 return;
             }
             
             if (!umbrella || !vertical) {
-                alert('Please select an industry umbrella and vertical.');
+                showFormError('Please select an industry and vertical.');
                 return;
             }
             
             // Require structure for Multi-Unit
             if (umbrella === 'multiUnit' && !structure) {
-                alert('Please select a structure (Franchisor or Company-Operated).');
+                showFormError('Please select a structure (Franchisor or Company-Operated).');
                 return;
+            }
+            
+            // Disable form immediately to prevent resubmission
+            var formContainer = document.getElementById('contactFormContainer');
+            if (formContainer) {
+                formContainer.classList.add('disabled');
             }
             
             leadData.contact = { 
@@ -2305,12 +2472,24 @@
             };
             
             addUserMessage(name + ' - ' + email);
+            hasSubmittedContact = true;
             
             showTyping(function() {
-                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and someone from our team will be in touch within 48 hours.<br><br>Is there anything else I can help you with?', [
-                    { text: "Ask a question", action: function() { enableQualifiedFreeform(); } },
+                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and someone from our team will be in touch within 48 hours.<br><br>In the meantime, feel free to explore:', [
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } },
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
                     { text: "That's all, thanks!", action: function() { endChat(); } }
                 ]);
+                
+                showTyping(function() {
+                    addBotMessage('More to explore:', [
+                        { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
+                        { text: "How we're different", action: function() { showPhilosophy(); } },
+                        { text: "Our industries", action: function() { showIndustryInfo(); } },
+                        { text: "Deal structure", action: function() { showDealStructure(); } }
+                    ]);
+                }, 500);
                 
                 console.log('Lead captured:', leadData);
             }, 1200);
@@ -2335,10 +2514,26 @@
         
         function enableQualifiedFreeform() {
             unlockChatInput();
-            addBotMessage('You now have full access to chat! Ask me anything about Bird Dog Capital, our approach, case studies, or investment criteria.<br><br>Type your question below.', [
-                { text: "See case studies", action: function() { showTrackRecord(); } },
-                { text: "How we're different", action: function() { showPhilosophy(); } }
-            ]);
+            var options1 = [
+                { text: "Our approach", action: function() { showApproach(); } },
+                { text: "Case studies", action: function() { showTrackRecord(); } },
+                { text: "Our industries", action: function() { showIndustryInfo(); } },
+                { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } }
+            ];
+            
+            addBotMessage('What would you like to know about Bird Dog Capital?', options1);
+            
+            showTyping(function() {
+                var options2 = [
+                    { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
+                    { text: "How we're different", action: function() { showPhilosophy(); } },
+                    { text: "Deal structure", action: function() { showDealStructure(); } }
+                ];
+                if (!hasSubmittedContact) {
+                    options2.push({ text: "Leave my contact info →", action: function() { showContactForm(); }, primary: true });
+                }
+                addBotMessage('More options:', options2);
+            }, 500);
             document.getElementById('chatInput').focus();
         }
         
@@ -2370,6 +2565,33 @@
         }
         
         function getKnowledgeResponse(text) {
+            // Helper function to get appropriate CTA based on contact status and eligibility
+            function getCtaOptions() {
+                if (hasSubmittedContact) {
+                    return [
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } },
+                        { text: "Back to menu", action: function() { showInfoMenu(); } }
+                    ];
+                } else if (isEligible) {
+                    // Qualified but hasn't submitted contact yet
+                    return [
+                        { text: "Leave my contact info", action: function() { showContactForm(); }, primary: true },
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
+                    ];
+                } else if (hasCompletedEligibility) {
+                    // Went through eligibility but didn't qualify - no fit CTA
+                    return [
+                        { text: "Back to menu", action: function() { showInfoMenu(); } }
+                    ];
+                } else {
+                    // Not yet gone through eligibility
+                    return [
+                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
+                        { text: "Back to menu", action: function() { showInfoMenu(); } }
+                    ];
+                }
+            }
+            
             // Company Identity
             if (text.indexOf('who') > -1 && (text.indexOf('are you') > -1 || text.indexOf('is bird dog') > -1 || text.indexOf('bird dog') > -1)) {
                 return {
@@ -2397,9 +2619,8 @@
                 return {
                     text: '<strong>Investment Approach:</strong><br><br>As an <strong>independent sponsor</strong>, Bird Dog Capital sources and structures deals, then partners with institutional capital providers for each transaction.<br><br>This model allows us to:<br>• Focus on finding the best opportunities<br>• Tailor capital structures to each deal<br>• Align interests with business owners<br>• Deploy our operational expertise directly<br><br>Typical equity investments range from <strong>$5M to $50M+</strong>.',
                     options: [
-                        { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                        { text: "Investment criteria", action: function() { showCriteriaInfo(); } }
+                    ].concat(getCtaOptions())
                 };
             }
             
@@ -2407,10 +2628,7 @@
             if (text.indexOf('independent sponsor') > -1 || text.indexOf('what is') > -1 && text.indexOf('sponsor') > -1) {
                 return {
                     text: '<strong>What is an Independent Sponsor?</strong><br><br>Unlike traditional PE funds, independent sponsors don\'t raise a blind pool of capital upfront. Instead, we:<br><br>• Source and evaluate deals directly<br>• Structure transactions with aligned incentives<br>• Partner with institutional investors deal-by-deal<br>• Focus 100% of our attention on each investment<br><br>This means more flexibility, better alignment, and deeper involvement with portfolio companies.',
-                    options: [
-                        { text: "Our approach", action: function() { showInfoMenu(); } },
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                    options: getCtaOptions()
                 };
             }
             
@@ -2418,7 +2636,9 @@
             if (text.indexOf('team') > -1 || text.indexOf('jake') > -1 || text.indexOf('craig') > -1 || text.indexOf('who runs') > -1 || text.indexOf('leadership') > -1 || text.indexOf('partners') > -1) {
                 return {
                     text: '<strong>Leadership Team:</strong><br><br><strong>Jake LaJoie</strong> - Managing Partner<br>20+ years PE experience, former CFO of Shakey\'s USA<br><br><strong>Craig Colby</strong> - Senior Operating Partner<br>20+ years restaurant experience, former Burger King/Red Robin franchisee<br><br>Combined: $75B+ transaction value, 400+ deals, 200+ years of experience.',
-                    options: [
+                    options: hasSubmittedContact ? [
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
+                    ] : [
                         { text: "Contact info", action: function() { showTeamInfo(); } },
                         { text: "Schedule a call", action: function() { showContactForm(); } }
                     ]
@@ -2429,9 +2649,7 @@
             if (text.indexOf('criteria') > -1 || text.indexOf('requirement') > -1 || text.indexOf('minimum') > -1 || text.indexOf('qualify') > -1 || text.indexOf('ebitda') > -1) {
                 return {
                     text: '<strong>Investment Criteria:</strong><br><br>• <strong>EBITDA:</strong> Minimum $5 million (exceptions for strategic fits)<br>• <strong>Location:</strong> U.S. or Canada only<br>• <strong>Industries:</strong> Multi-Unit or Critical Infrastructure<br>• <strong>Management:</strong> Experienced, proven, high integrity<br>• <strong>Growth:</strong> Attractive prospects with strong cash flow',
-                    options: [
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                    options: getCtaOptions()
                 };
             }
             
@@ -2439,9 +2657,7 @@
             if (text.indexOf('industr') > -1 || text.indexOf('sector') > -1 || text.indexOf('focus') > -1 || text.indexOf('vertical') > -1) {
                 return {
                     text: '<strong>Our Focus Industries:</strong><br><br><strong>1. Multi-Unit Businesses</strong><br>• Food: QSR, fast casual, casual dining, coffee, bakery<br>• Non-Food: Fitness, spa, pet services, home services, lawn care, automotive, cleaning, education, senior care, childcare<br><br><strong>2. Critical Infrastructure Services</strong><br>• Telecommunications<br>• Power/Electrical<br>• Water/Wastewater',
-                    options: [
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                    options: getCtaOptions()
                 };
             }
             
@@ -2449,9 +2665,7 @@
             if (text.indexOf('franchise') > -1 || text.indexOf('franchisor') > -1) {
                 return {
                     text: '<strong>Franchise Experience:</strong><br><br>Our team has worked with 50+ franchise brands and 30,000+ units with $40B+ in system-wide revenue.<br><br>We invest in both franchisors and corporate-owned multi-unit systems across food and non-food sectors including:<br>• Restaurant concepts (QSR, fast casual, casual dining)<br>• Service franchises (fitness, spa, pet, home services, lawn care, automotive)',
-                    options: [
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                    options: getCtaOptions()
                 };
             }
             
@@ -2459,7 +2673,9 @@
             if (text.indexOf('track record') > -1 || text.indexOf('results') > -1 || text.indexOf('roi') > -1 || text.indexOf('return') > -1 || text.indexOf('performance') > -1 || text.indexOf('case stud') > -1) {
                 return {
                     text: '<strong>Proven Track Record:</strong><br><br>• <strong>McAlister\'s Deli:</strong> 5.3x ROI - Doubled EBITDA, 30% AUV increase<br>• <strong>Track Utilities:</strong> 5.1x ROI, 235% IRR - Doubled EBITDA<br>• <strong>Multi-Unit Portfolio:</strong> Returns up to 8.7x ROI<br><br><strong>Team Stats:</strong><br>$75B+ transaction value | 400+ deals | 200+ years experience',
-                    options: [
+                    options: hasSubmittedContact ? [
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
+                    ] : [
                         { text: "Schedule a call", action: function() { showContactForm(); } }
                     ]
                 };
@@ -2469,9 +2685,7 @@
             if (text.indexOf('transaction') > -1 || text.indexOf('deal') > -1 || text.indexOf('buyout') > -1 || text.indexOf('acquisition') > -1 || text.indexOf('sell') > -1 || text.indexOf('exit') > -1 || text.indexOf('succession') > -1) {
                 return {
                     text: '<strong>Transaction Types We Support:</strong><br><br>• Management/Leveraged Buyouts<br>• Corporate Divestitures<br>• Family Succession/Owner Recapitalizations<br>• Growth Equity<br><br>We structure transactions to align interests of all stakeholders with a focus on long-term value creation.',
-                    options: [
-                        { text: "Discuss my situation", action: function() { showOwnerFlow(); } }
-                    ]
+                    options: getCtaOptions()
                 };
             }
             
@@ -2489,7 +2703,9 @@
             if (text.indexOf('consult') > -1 || text.indexOf('advisory') > -1 || text.indexOf('services') > -1) {
                 return {
                     text: '<strong>Consulting Services:</strong><br><br>Bird Dog provides comprehensive consulting beyond just capital:<br><br>• Strategy Development<br>• Operations Optimization<br>• Financial Advisory<br>• Transaction Support<br><br>Our consulting engagements often lead to more informed investment decisions and stronger partnerships.',
-                    options: [
+                    options: hasSubmittedContact ? [
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
+                    ] : [
                         { text: "Schedule a call", action: function() { showContactForm(); } }
                     ]
                 };
@@ -2498,8 +2714,10 @@
             // Contact
             if (text.indexOf('contact') > -1 || text.indexOf('email') > -1 || text.indexOf('phone') > -1 || text.indexOf('reach') > -1 || text.indexOf('call') > -1) {
                 return {
-                    text: '<strong>Contact Us:</strong><br><br><strong>Jake LaJoie</strong>, Managing Partner<br>jake@birddogcapitalgrp.com<br>(404) 909-7657<br><br><strong>Craig Colby</strong>, Senior Operating Partner<br>craig@birddogcapitalgrp.com<br>(302) 766-0074<br><br>Atlanta, Georgia<br>www.birddogcapitalgrp.com',
-                    options: [
+                    text: '<strong>Contact Us:</strong><br><br><strong>Jake LaJoie</strong>, Managing Partner<br>(404) 909-7657<br><br><strong>Craig Colby</strong>, Senior Operating Partner<br>(302) 766-0074<br><br>Atlanta, Georgia<br>www.birddogcapitalgrp.com',
+                    options: hasSubmittedContact ? [
+                        { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
+                    ] : [
                         { text: "Leave my info", action: function() { showContactForm(); } }
                     ]
                 };
@@ -2521,9 +2739,8 @@
                 return {
                     text: '<strong>Critical Infrastructure Services:</strong><br><br>We invest in essential services including:<br><br>• <strong>Telecommunications:</strong> Fiber, wireless, network infrastructure<br>• <strong>Power/Electrical:</strong> Utility construction, electrical contracting<br>• <strong>Water/Wastewater:</strong> Treatment, pipeline, environmental<br><br><strong>Case Study:</strong> Track Utilities achieved 5.1x ROI and 235% IRR.',
                     options: [
-                        { text: "Track Utilities story", action: function() { showTrackCase(); } },
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                        { text: "Track Utilities story", action: function() { showTrackCase(); } }
+                    ].concat(getCtaOptions())
                 };
             }
             
@@ -2532,9 +2749,8 @@
                 return {
                     text: '<strong>Food Service Expertise:</strong><br><br>Our team has deep experience in restaurants and food service:<br><br>• Quick Service Restaurants (QSR)<br>• Fast Casual Dining<br>• Casual Dining<br>• Coffee & Beverage<br>• Bakery & Desserts<br><br><strong>Case Study:</strong> McAlister\'s Deli achieved 5.3x ROI with 30% increase in new location AUVs.',
                     options: [
-                        { text: "McAlister's story", action: function() { showMcAlisterCase(); } },
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                        { text: "McAlister's story", action: function() { showMcAlisterCase(); } }
+                    ].concat(getCtaOptions())
                 };
             }
             
@@ -2543,19 +2759,18 @@
                 return {
                     text: '<strong>Non-Food Multi-Unit Experience:</strong><br><br>We invest in service-based franchise and multi-unit concepts:<br><br>• Fitness & Wellness Centers<br>• Spa & Salon Services<br>• Pet Services<br>• Home Services (HVAC, Plumbing, etc.)<br>• Lawn Care & Landscaping<br>• Cleaning Services<br>• Automotive Services<br>• Education & Tutoring<br>• Senior Care & Childcare',
                     options: [
-                        { text: "Our approach", action: function() { showPhilosophy(); } },
-                        { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                    ]
+                        { text: "Our approach", action: function() { showPhilosophy(); } }
+                    ].concat(getCtaOptions())
                 };
             }
             
-            // Detailed questions for non-eligible
-            if (!isEligible && (text.indexOf('specific') > -1 || text.indexOf('detail') > -1 || text.indexOf('more info') > -1 || text.indexOf('valuation') > -1 || text.indexOf('terms') > -1 || text.indexOf('structure') > -1)) {
+            // Detailed questions for non-eligible (only show if they haven't gone through eligibility)
+            if (!hasCompletedEligibility && (text.indexOf('specific') > -1 || text.indexOf('detail') > -1 || text.indexOf('more info') > -1 || text.indexOf('valuation') > -1 || text.indexOf('terms') > -1 || text.indexOf('structure') > -1)) {
                 return {
                     text: 'For detailed discussions about valuation, terms, or specific deal structures, we\'d need to learn more about your situation first.<br><br>Let\'s start by checking if there\'s a potential fit.',
                     options: [
                         { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                        { text: "Contact the team directly", action: function() { showTeamInfo(); } }
+                        { text: "Learn about Bird Dog", action: function() { showInfoMenu(); } }
                     ]
                 };
             }
@@ -2565,44 +2780,339 @@
                 text: 'I\'m happy to help you learn more about Bird Dog Capital. We\'re an independent sponsor focused on Multi-Unit businesses and Critical Infrastructure Services.<br><br>What would you like to know?',
                 options: [
                     { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } }
-                ]
+                    { text: "How we're different", action: function() { showPhilosophy(); } }
+                ].concat(getCtaOptions())
             };
         }
         
         function showPhilosophy() {
             addUserMessage("How we're different");
             showTyping(function() {
-                addBotMessage('<strong>The Bird Dog Difference:</strong><br><br>• <strong>Not Generalists:</strong> We only invest where we have deep operating experience<br>• <strong>Investors + Operators:</strong> We don\'t just write checks - we roll up our sleeves<br>• <strong>Performance-Based:</strong> We pay for results, not promises<br>• <strong>Conservative Approach:</strong> We use less leverage so teams can focus on growth, not covenants<br>• <strong>Character Matters:</strong> We partner with people of high integrity<br><br>Every aspect of our model is designed to maximize risk-adjusted returns.', [
+                var options = [
+                    { text: "See all 6 pillars", action: function() { showPhilosophyFull(); } },
                     { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
-                ]);
+                    { text: "Our approach", action: function() { showApproach(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                
+                addBotMessage('<strong>The Bird Dog Difference:</strong><br><br>• <strong>Not Generalists:</strong> We only invest where we have deep operating experience<br>• <strong>Investors + Operators:</strong> We don\'t just write checks - we roll up our sleeves<br>• <strong>Performance-Based:</strong> We pay for results, not promises<br>• <strong>Conservative Approach:</strong> We use less leverage so teams can focus on growth<br>• <strong>Character Matters:</strong> We partner with people of high integrity<br><br>Every aspect of our model maximizes risk-adjusted returns.', options);
             });
         }
         
         function showMcAlisterCase() {
             addUserMessage("McAlister's Deli case study");
             showTyping(function() {
-                addBotMessage('<strong>Case Study: McAlister\'s Deli</strong><br><br><strong>The Plan:</strong><br>• Align incentives with 12% management equity<br>• Increase average unit volume (AUV)<br>• Enhance operating margins<br>• Improve speed of service<br><br><strong>The Execution:</strong><br>• Enhanced marketing & new LTOs<br>• Improved site selection → 30% higher AUVs<br>• Developed new menu, cut low-margin items<br>• Reconfigured kitchen layout<br><br><strong>Results: 5.3x ROI</strong><br>More than doubled EBITDA, returned 140% of equity through dividend recaps before exit.', [
+                var options = [
                     { text: "Track Utilities case", action: function() { showTrackCase(); } },
-                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
-                ]);
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                
+                addBotMessage('<strong>Case Study: McAlister\'s Deli</strong><br><br><strong>The Plan:</strong><br>• Align incentives with 12% management equity<br>• Increase average unit volume (AUV)<br>• Enhance operating margins<br>• Improve speed of service<br><br><strong>The Execution:</strong><br>• Enhanced marketing & new LTOs<br>• Improved site selection → 30% higher AUVs<br>• Developed new menu, cut low-margin items<br>• Reconfigured kitchen layout<br><br><strong>Results: 5.3x ROI</strong><br>More than doubled EBITDA, returned 140% of equity through dividend recaps before exit.', options);
             });
         }
         
         function showTrackCase() {
             addUserMessage("Track Utilities case study");
             showTyping(function() {
-                addBotMessage('<strong>Case Study: Track Utilities</strong><br><br><strong>The Plan:</strong><br>• Align incentives with rollover equity<br>• Reduce customer concentration<br>• Accelerate organic growth<br>• Professionalize the business<br><br><strong>The Execution:</strong><br>• Acquired H&H Utility for new services & customers<br>• Added strategic acquisitions for EBITDA growth<br>• Leveraged relationships to win new business<br>• Instituted KPIs and Board of Managers<br><br><strong>Results: 5.1x ROI | 235% IRR</strong><br>More than doubled EBITDA, achieved 2.5x multiple expansion at exit to CIVC Partners.', [
+                var options = [
                     { text: "McAlister's case", action: function() { showMcAlisterCase(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "See if there's a fit", action: function() { showOwnerFlow(); } },
+                    { text: "How we're different", action: function() { showPhilosophy(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                
+                addBotMessage('<strong>Case Study: Track Utilities</strong><br><br><strong>The Plan:</strong><br>• Align incentives with rollover equity<br>• Reduce customer concentration<br>• Accelerate organic growth<br>• Professionalize the business<br><br><strong>The Execution:</strong><br>• Acquired H&H Utility for new services & customers<br>• Added strategic acquisitions for EBITDA growth<br>• Leveraged relationships to win new business<br>• Instituted KPIs and Board of Managers<br><br><strong>Results: 5.1x ROI | 235% IRR</strong><br>More than doubled EBITDA, achieved 2.5x multiple expansion at exit to CIVC Partners.', options);
+            });
+        }
+        
+        // ============================================
+        // NEW COMPREHENSIVE CONTENT FUNCTIONS
+        // Based on full Bird Dog Capital Prospectus
+        // ============================================
+        
+        // APPROACH
+        function showApproach() {
+            addUserMessage("Our approach");
+            showTyping(function() {
+                addBotMessage('<strong>The Bird Dog Approach:</strong><br><br>We combine <strong>financial capital</strong> (principal equity investments) with <strong>intellectual capital</strong> (strategy, operations, and transaction consulting).<br><br>This dual capability lets us:<br>• Source proprietary deals through consulting relationships<br>• Make more informed investments<br>• Execute value enhancement plans from day one<br>• Minimize exit risk through buyer relationships', [
+                    { text: "What's an independent sponsor?", action: function() { showIndependentSponsor(); } },
+                    { text: "Value creation process", action: function() { showValueCreation(); } },
+                    { text: "Consulting services", action: function() { showConsulting(); } },
                     { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // INDEPENDENT SPONSOR
+        function showIndependentSponsor() {
+            addUserMessage("What's an independent sponsor?");
+            showTyping(function() {
+                var options = [
+                    { text: "How deals are structured", action: function() { showDealStructure(); } },
+                    { text: "Our approach", action: function() { showApproach(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('<strong>What is an Independent Sponsor?</strong><br><br>Unlike traditional PE funds, we don\'t raise a blind pool of capital upfront. Instead, we:<br><br>• <strong>Source deals directly</strong> - Often through our consulting practice<br>• <strong>Partner deal-by-deal</strong> - With institutional capital providers<br>• <strong>Focus 100%</strong> - On each investment individually<br>• <strong>Align interests</strong> - Structure transactions for all stakeholders<br><br>This means more flexibility, deeper involvement, and better alignment with business owners.', options);
+            });
+        }
+        
+        // VALUE CREATION
+        function showValueCreation() {
+            addUserMessage("Value creation process");
+            showTyping(function() {
+                var options = [
+                    { text: "See it in action", action: function() { showTrackRecord(); } },
+                    { text: "Our team's role", action: function() { showSOPs(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                addBotMessage('<strong>How We Create Value:</strong><br><br><strong>Before Closing:</strong><br>• Develop value enhancement plans during due diligence<br>• Engage Senior Operating Partners early<br>• Structure deals to align all stakeholders<br><br><strong>After Closing:</strong><br>• Execute plans immediately from day one<br>• Deploy our SOPs and trusted partners<br>• Implement KPIs and governance<br>• Leverage relationships for growth<br><br><strong>At Exit:</strong><br>• Unique buyer relationships minimize exit risk<br>• Often return capital via dividend recaps before exit', options);
+            });
+        }
+        
+        // SENIOR OPERATING PARTNERS
+        function showSOPs() {
+            addUserMessage("Senior Operating Partners");
+            showTyping(function() {
+                addBotMessage('<strong>Senior Operating Partners (SOPs):</strong><br><br>Our SOPs are experienced operators who work hands-on with portfolio companies. They\'re not just advisors—they execute.<br><br>Several of our SOPs are former owners or executives of companies we\'ve invested in:<br>• McAlister\'s CMO became a Bird Dog SOP<br>• Track Utilities\' owner/CEO joined as an SOP<br><br>This creates a powerful network of operators who\'ve been through the process themselves.', [
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                    { text: "See case studies", action: function() { showTrackRecord(); } },
+                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // DEAL STRUCTURE
+        function showDealStructure() {
+            addUserMessage("How deals are structured");
+            showTyping(function() {
+                addBotMessage('<strong>How We Structure Deals:</strong><br><br>Every deal is structured to align interests:<br><br>• <strong>Management Equity:</strong> Typically 10-20% for management<br>• <strong>Rollover Options:</strong> Sellers can retain equity stake<br>• <strong>Performance Incentives:</strong> Pay for results, not promises<br>• <strong>Conservative Leverage:</strong> Less debt so teams focus on growth<br><br>We partner with institutional capital providers deal-by-deal, tailoring each structure.', [
+                    { text: "Transaction types", action: function() { showTransactionTypes(); } },
+                    { text: "Management equity examples", action: function() { showManagementEquity(); } },
+                    { text: "Our leverage philosophy", action: function() { showLeverage(); } },
+                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // TRANSACTION TYPES
+        function showTransactionTypes() {
+            addUserMessage("Transaction types");
+            showTyping(function() {
+                var options = [
+                    { text: "Investment criteria", action: function() { showCriteriaInfo(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Transaction Types We Support:</strong><br><br>• <strong>Management/Leveraged Buyouts</strong><br>Partner with management to acquire the business<br><br>• <strong>Corporate Divestitures</strong><br>Acquire non-core divisions from larger companies<br><br>• <strong>Family Succession/Owner Recapitalizations</strong><br>Help founders transition while retaining some equity<br><br>• <strong>Growth Equity</strong><br>Provide capital to fuel expansion plans', options);
+            });
+        }
+        
+        // MANAGEMENT EQUITY
+        function showManagementEquity() {
+            addUserMessage("Management equity examples");
+            showTyping(function() {
+                addBotMessage('<strong>Management Equity & Alignment:</strong><br><br>We believe in putting skin in the game:<br><br>• <strong>McAlister\'s Deli:</strong> 12% equity stake to management post-close<br>• <strong>Track Utilities:</strong> 11% rollover equity + seller note from owner/CEO<br><br>We implement performance-based compensation plans for owners, key managers, and even our own firm.<br><br><strong>Philosophy:</strong> Pay for performance, not promises.', [
+                    { text: "McAlister's full story", action: function() { showMcAlisterCase(); } },
+                    { text: "Track Utilities full story", action: function() { showTrackCase(); } },
+                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // LEVERAGE PHILOSOPHY
+        function showLeverage() {
+            addUserMessage("Our leverage philosophy");
+            showTyping(function() {
+                addBotMessage('<strong>Conservative Use of Leverage:</strong><br><br>We\'re more conservative than typical PE firms in our use of debt.<br><br><strong>Why?</strong><br>• Things don\'t always go as planned<br>• Heavy debt burdens distract management<br>• We want teams focused on <strong>growth</strong>, not loan covenants<br><br>This approach reduces risk and lets management execute value creation plans without constant financial pressure.', [
+                    { text: "How we're different", action: function() { showPhilosophy(); } },
+                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // CONSULTING SERVICES
+        function showConsulting() {
+            addUserMessage("Consulting services");
+            showTyping(function() {
+                var options = [
+                    { text: "Our approach", action: function() { showApproach(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Consulting Services:</strong><br><br>Beyond capital, we provide comprehensive consulting:<br><br>• <strong>Strategy:</strong> Value enhancement planning<br>• <strong>Operations:</strong> Execution of growth and margin improvement<br>• <strong>Financial & Transaction:</strong> Financing alternatives, M&A support<br><br><strong>How Consulting Leads to Investment:</strong><br>Our consulting engagements often provide company-specific insights that lead to more informed investment decisions. We build relationships first, then invest when the fit is right.', options);
+            });
+        }
+        
+        // FOOD VERTICAL
+        function showFoodVertical() {
+            addUserMessage("Multi-Unit: Food");
+            showTyping(function() {
+                var options = [
+                    { text: "McAlister's case study", action: function() { showMcAlisterCase(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to industries", action: function() { showIndustryInfo(); } });
+                addBotMessage('<strong>Food Service Expertise:</strong><br><br>Our team has deep experience across:<br><br>• <strong>Quick Service Restaurants (QSR)</strong><br>• <strong>Fast Casual Dining</strong><br>• <strong>Casual Dining</strong><br>• <strong>Coffee & Beverage</strong><br>• <strong>Bakery & Desserts</strong><br><br>We invest in <strong>franchisors</strong> and <strong>corporate-owned multi-unit systems</strong>—not individual franchise locations.', options);
+            });
+        }
+        
+        // NON-FOOD VERTICAL
+        function showNonFoodVertical() {
+            addUserMessage("Multi-Unit: Non-Food");
+            showTyping(function() {
+                var options = [
+                    { text: "How we're different", action: function() { showPhilosophy(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to industries", action: function() { showIndustryInfo(); } });
+                addBotMessage('<strong>Non-Food Multi-Unit Experience:</strong><br><br>We invest in service-based franchise and multi-unit concepts:<br><br>• <strong>Fitness & Wellness</strong> - Gyms, studios, wellness centers<br>• <strong>Spa & Salon</strong> - Beauty, personal care<br>• <strong>Pet Services</strong> - Grooming, boarding, veterinary<br>• <strong>Home Services</strong> - HVAC, plumbing, electrical, cleaning<br>• <strong>Lawn & Landscaping</strong><br>• <strong>Automotive Services</strong><br>• <strong>Education & Tutoring</strong><br>• <strong>Senior Care & Childcare</strong>', options);
+            });
+        }
+        
+        // INFRASTRUCTURE
+        function showInfrastructureInfo() {
+            addUserMessage("Critical Infrastructure");
+            showTyping(function() {
+                var options = [
+                    { text: "Track Utilities case study", action: function() { showTrackCase(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to industries", action: function() { showIndustryInfo(); } });
+                addBotMessage('<strong>Critical Infrastructure Services:</strong><br><br>We invest in essential services that communities depend on:<br><br>• <strong>Telecommunications</strong><br>Fiber, wireless, network infrastructure<br><br>• <strong>Power/Electrical</strong><br>Utility construction, electrical contracting<br><br>• <strong>Water/Wastewater</strong><br>Treatment, pipeline, environmental services<br><br>These businesses provide recession-resistant cash flows and long-term growth.', options);
+            });
+        }
+        
+        // MANAGEMENT REQUIREMENTS
+        function showManagementRequirements() {
+            addUserMessage("Management requirements");
+            showTyping(function() {
+                addBotMessage('<strong>What We Look For in Management:</strong><br><br>• <strong>Significant industry experience</strong><br>• <strong>Proven track record</strong> of execution<br>• <strong>Strong alignment of interests</strong> with ours<br>• <strong>Intelligent and experienced</strong><br>• <strong>High integrity and character</strong><br><br>We partner with people we can be proud to be associated with. Our reputation is at stake—and so is yours.', [
+                    { text: "How we align interests", action: function() { showManagementEquity(); } },
+                    { text: "Back to criteria", action: function() { showCriteriaInfo(); } },
+                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                ]);
+            });
+        }
+        
+        // PORTFOLIO RETURNS
+        function showPortfolioReturns() {
+            addUserMessage("Portfolio returns");
+            showTyping(function() {
+                var options = [
+                    { text: "McAlister's story", action: function() { showMcAlisterCase(); } },
+                    { text: "Track Utilities story", action: function() { showTrackCase(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Portfolio Returns:</strong><br><br>Our team\'s track record across focus industries:<br><br>• <strong>~5x ROI</strong> - Through dividend recaps (partially realized)<br>• <strong>8.7x ROI</strong> - Fully realized multi-unit investment<br>• <strong>5.3x ROI</strong> - McAlister\'s Deli<br>• <strong>5.1x ROI / 235% IRR</strong> - Track Utilities<br><br><strong>Key Strategy:</strong> We often return significant capital through dividend recaps <em>before</em> the final exit—McAlister\'s returned 140%+ of initial equity before sale.', options);
+            });
+        }
+        
+        // JAKE BIO
+        function showJakeBio() {
+            addUserMessage("Jake's background");
+            showTyping(function() {
+                var options = [
+                    { text: "Craig's background", action: function() { showCraigBio(); } },
+                    { text: "See case studies", action: function() { showTrackRecord(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Jake LaJoie - Managing Partner</strong><br><br>20+ years of private equity, investment banking, and operations experience:<br><br>• Former CFO of Shakey\'s USA<br>• Previously with Argonne Capital Group<br>• Previously with Roark Capital Group<br>• Banc of America Securities background<br><br>Jake brings deep transaction experience and hands-on operational leadership to every deal.<br><br>(404) 909-7657 | Atlanta, GA', options);
+            });
+        }
+        
+        // CRAIG BIO
+        function showCraigBio() {
+            addUserMessage("Craig's background");
+            showTyping(function() {
+                var options = [
+                    { text: "Jake's background", action: function() { showJakeBio(); } },
+                    { text: "See case studies", action: function() { showTrackRecord(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Craig Colby - Senior Operating Partner</strong><br><br>20+ years of restaurant and franchise operations experience:<br><br>• Former Burger King franchisee (top performer)<br>• Former Red Robin franchisee<br>• Co-owner of Colby Restaurant Group<br>• Launched Southern Kissed Chicken<br>• Launched Chuck Lager<br><br>Craig brings real-world operator experience from both franchise and corporate perspectives.<br><br>(302) 766-0074 | Atlanta, GA', options);
+            });
+        }
+        
+        // TEAM STATS
+        function showTeamStats() {
+            addUserMessage("Team statistics");
+            showTyping(function() {
+                var options = [
+                    { text: "See case studies", action: function() { showTrackRecord(); } },
+                    { text: "Our approach", action: function() { showApproach(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage('<strong>Combined Team Experience:</strong><br><br>• <strong>$75 Billion+</strong> in transaction value<br>• <strong>$1 Billion+</strong> in equity deployed<br>• <strong>400+</strong> completed transactions<br>• <strong>200+</strong> years of combined experience<br><br><strong>Multi-Unit Expertise:</strong><br>• <strong>50+</strong> brands<br>• <strong>30,000+</strong> units<br>• <strong>$40 Billion+</strong> system-wide revenue<br><br>From start-ups to iconic multi-national brands.', options);
+            });
+        }
+        
+        // PHILOSOPHY DETAIL
+        function showPhilosophyDetail(pillar) {
+            var content = '';
+            var title = '';
+            
+            if (pillar === 'risk') {
+                title = 'Risk-Adjusted Returns';
+                content = '<strong>Risk-Adjusted Returns Matter:</strong><br><br>We focus on creating and monetizing competitive advantages in every transaction to <strong>maximize returns AND minimize risk</strong>.<br><br>This means:<br>• Thorough due diligence augmented by our SOPs<br>• Value enhancement plans developed before closing<br>• Conservative leverage so teams can focus on growth<br>• Unique buyer relationships to minimize exit risk';
+            } else if (pillar === 'focus') {
+                title = 'Industry Focus';
+                content = '<strong>Industry Focus is Critical:</strong><br><br>We are <strong>not generalists</strong>.<br><br>We only invest in industries where we have:<br>• A successful track record of investing<br>• Deep operating experience<br>• Established relationships and networks<br>• Information advantages over other buyers<br><br>This discipline is why we focus exclusively on Multi-Unit and Critical Infrastructure.';
+            } else if (pillar === 'performance') {
+                title = 'Performance Over Promises';
+                content = '<strong>Performance Speaks Louder Than Promises:</strong><br><br>We pay for <strong>performance, not promises</strong>.<br><br>How we align interests:<br>• Management equity stakes (typically 10-20%)<br>• Performance-based compensation plans<br>• Rollover options for selling owners<br>• Our own firm\'s compensation tied to results<br><br>Everyone succeeds together—or not at all.';
+            } else if (pillar === 'unexpected') {
+                title = 'Plan for the Unexpected';
+                content = '<strong>Plan for the Unexpected:</strong><br><br>We understand that things don\'t always go as planned.<br><br>Our approach:<br>• More conservative in forecasting<br>• Less aggressive use of leverage<br>• Keep management focused on growth, not loan covenants<br>• Build in flexibility for market changes<br><br>This protects both the investment and the management team.';
+            } else if (pillar === 'integrity') {
+                title = 'Integrity Matters';
+                content = '<strong>Integrity and Character Mean Something:</strong><br><br>It\'s not enough to work with smart, experienced people.<br><br>We partner with people of <strong>high integrity and character</strong>—people we can be proud to be associated with.<br><br>Our reputation is at stake. And so is yours.';
+            } else if (pillar === 'capital') {
+                title = 'Financial + Intellectual Capital';
+                content = '<strong>Combining Financial & Intellectual Capital:</strong><br><br>We are <strong>investors AND consultants</strong>.<br><br>When able, we engage as consultants to:<br>• Build value enhancement plans side-by-side with owners<br>• Gain company-specific information advantages<br>• Make far more informed investments<br><br>This dual capability is what makes Bird Dog unique.';
+            }
+            
+            addUserMessage(title);
+            showTyping(function() {
+                var options = [
+                    { text: "See all 6 pillars", action: function() { showPhilosophyFull(); } },
+                    { text: "See case studies", action: function() { showTrackRecord(); } }
+                ];
+                var ctaBtn = getContactOrFitButton();
+                if (ctaBtn) options.push(ctaBtn);
+                options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
+                addBotMessage(content, options);
+            });
+        }
+        
+        // PHILOSOPHY FULL (6 PILLARS)
+        function showPhilosophyFull() {
+            addUserMessage("Our 6 pillars");
+            showTyping(function() {
+                addBotMessage('<strong>The Bird Dog Philosophy - 6 Pillars:</strong><br><br>Every aspect of our model maximizes risk-adjusted returns:<br><br>1. <strong>Risk-Adjusted Returns Matter</strong><br>2. <strong>Industry Focus is Critical</strong><br>3. <strong>Financial + Intellectual Capital</strong><br>4. <strong>Performance Over Promises</strong><br>5. <strong>Plan for the Unexpected</strong><br>6. <strong>Integrity and Character Matter</strong>', [
+                    { text: "Risk-adjusted returns", action: function() { showPhilosophyDetail('risk'); } },
+                    { text: "Industry focus", action: function() { showPhilosophyDetail('focus'); } },
+                    { text: "Financial + intellectual", action: function() { showPhilosophyDetail('capital'); } },
+                    { text: "Performance over promises", action: function() { showPhilosophyDetail('performance'); } }
                 ]);
             });
         }
