@@ -1247,7 +1247,7 @@
                 <span>Delivering Results</span>
             </h1>
             <p class="hero-subtitle">Private Equity | Multi-Unit & Critical Infrastructure</p>
-            <span class="hero-cta" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">Let Us Show You How</span>
+            <span class="hero-cta" onclick="openChat()">Let Us Show You How</span>
         </div>
     </section>
 
@@ -1453,7 +1453,7 @@
                     <p class="member-title">Managing Partner</p>
                     <p>20+ years of private equity, investment banking, and operations experience. Former CFO of Shakey's USA. Previously with Argonne Capital Group, Roark Capital Group, and Banc of America Securities.</p>
                     <p class="member-contact">
-                        <a href="/cdn-cgi/l/email-protection#b2d8d3d9d7f2d0dbc0d6d6ddd5d1d3c2dbc6d3ded5c0c29cd1dddf"><span class="__cf_email__" data-cfemail="d5bfb4beb095b7bca7b1b1bab2b6b4a5bca1b4b9b2a7a5fbb6bab8">[email&#160;protected]</span></a><br>
+                        <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Contact Jake</a><br>
                         (404) 909-7657 · Atlanta, GA
                     </p>
                 </div>
@@ -1466,7 +1466,7 @@
                     <p class="member-title">Senior Operating Partner</p>
                     <p>20+ years restaurant experience. Former Burger King and Red Robin franchisee (top performer). Co-owner of Colby Restaurant Group. Launched Southern Kissed Chicken and Chuck Lager.</p>
                     <p class="member-contact">
-                        <a href="/cdn-cgi/l/email-protection#096a7b68606e496b607b6d6d666e6a6879607d68656e7b79276a6664"><span class="__cf_email__" data-cfemail="86e5f4e7efe1c6e4eff4e2e2e9e1e5e7f6eff2e7eae1f4f6a8e5e9eb">[email&#160;protected]</span></a><br>
+                        <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Contact Craig</a><br>
                         Atlanta, GA
                     </p>
                 </div>
@@ -1478,12 +1478,12 @@
     <section class="section contact-section" id="contact">
         <h2>Let's Talk</h2>
         <p>Whether you're a business owner exploring options or an advisor with an opportunity, we'd like to hear from you.</p>
-        <a href="/cdn-cgi/l/email-protection#701a111b153012190214141f171311001904111c1702005e131f1d" class="contact-cta">Get in Touch</a>
+        <span class="contact-cta" onclick="openChat()" style="cursor:pointer;">Start a Conversation</span>
         
         <div class="contact-info">
             <div class="contact-item">
                 <label>Email</label>
-                <a href="/cdn-cgi/l/email-protection#a5cfc4cec0e5c7ccd7c1c1cac2c6c4d5ccd1c4c9c2d7d58bc6cac8"><span class="__cf_email__" data-cfemail="fb919a909ebb9992899f9f949c989a8b928f9a979c898bd5989496">[email&#160;protected]</span></a>
+                <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Start a conversation</a>
             </div>
             <div class="contact-item">
                 <label>Phone</label>
@@ -1810,6 +1810,12 @@
                 startChat();
             } else {
                 chatWindow.classList.remove('open');
+            }
+        }
+
+        function openChat() {
+            if (!chatOpen) {
+                toggleChat();
             }
         }
         
