@@ -2201,9 +2201,10 @@
                     ]);
                 }, 500);
             } else if (!meetsEbitda && inTargetVertical) {
-                // Near miss - right industry, under EBITDA threshold
-                addBotMessage('Thank you for your interest. Our typical focus is on businesses with $5M+ EBITDA, though we do consider strategic exceptions for high-growth opportunities.<br><br>If you\'d like us to keep you in mind for the future, you can leave your basic info below.', [
-                    { text: "Leave info for future", action: function() { showLimitedContactForm(); } },
+                // Under EBITDA threshold but right industry - offer consulting
+                leadData.leadType = 'Consulting';
+                addBotMessage('Thank you for sharing. Although not yet a fit for investment, we offer <strong>consulting services</strong> that might be able to pave the way to such growth horizons.<br><br>Our team has helped businesses optimize operations, improve unit economics, and position for future investment.<br><br>Would you like to explore a consulting conversation?', [
+                    { text: "Yes, tell me more", action: function() { showConsultingContactForm(); } },
                     { text: "Learn about Bird Dog", action: function() { showInfoMenu(); } }
                 ]);
             }
@@ -2235,24 +2236,26 @@
             }
         }
         
-        // LIMITED CONTACT FORM - For near-misses (right industry, under EBITDA)
-        function showLimitedContactForm() {
+        // CONSULTING CONTACT FORM - For under $5M but right industry
+        function showConsultingContactForm() {
             if (hasSubmittedContact) {
-                addBotMessage('You\'ve already submitted your contact information. We\'ll reach out if an opportunity arises.', [
+                addBotMessage('You\'ve already submitted your contact information. We\'ll be in touch soon.', [
                     { text: "Learn more about us", action: function() { showInfoMenu(); } }
                 ]);
                 return;
             }
             
             showTyping(function() {
-                var html = '<div class="message-content"><strong>Leave your info for future opportunities:</strong><br><br><p style="font-size:12px;color:#666;margin-bottom:12px;">We\'ll reach out if an opportunity arises that matches your profile.</p><div class="chat-form" id="limitedContactFormContainer">';
+                var html = '<div class="message-content"><strong>Let\'s start the conversation:</strong><br><br><p style="font-size:12px;color:#666;margin-bottom:12px;">Share your details and we\'ll reach out to discuss how we can help.</p><div class="chat-form" id="consultingContactFormContainer">';
                 html += '<label class="form-label">Full Name *</label>';
-                html += '<input type="text" id="limitedContactName" placeholder="John Smith">';
+                html += '<input type="text" id="consultingContactName" placeholder="John Smith">';
                 html += '<label class="form-label">Email Address *</label>';
-                html += '<input type="email" id="limitedContactEmail" placeholder="john@company.com">';
-                html += '<label class="form-label">Company Name</label>';
-                html += '<input type="text" id="limitedContactCompany" placeholder="Acme Corp">';
-                html += '<button class="chat-form-btn" onclick="submitLimitedContact()">Submit</button></div></div>';
+                html += '<input type="email" id="consultingContactEmail" placeholder="john@company.com">';
+                html += '<label class="form-label">Phone *</label>';
+                html += '<input type="tel" id="consultingContactPhone" placeholder="5551234567" oninput="this.value = this.value.replace(/[^0-9]/g, \'\')">';
+                html += '<label class="form-label">Company Name *</label>';
+                html += '<input type="text" id="consultingContactCompany" placeholder="Acme Corp">';
+                html += '<button class="chat-form-btn" onclick="submitConsultingContact()">Submit</button></div></div>';
                 
                 var messages = document.getElementById('chatMessages');
                 var msg = document.createElement('div');
@@ -2263,52 +2266,79 @@
             });
         }
         
-        function submitLimitedContact() {
+        function submitConsultingContact() {
             // Prevent double submission
             if (hasSubmittedContact) {
                 return;
             }
             
-            var name = document.getElementById('limitedContactName').value.trim();
-            var email = document.getElementById('limitedContactEmail').value.trim();
-            var company = document.getElementById('limitedContactCompany').value.trim();
+            var name = document.getElementById('consultingContactName').value.trim();
+            var email = document.getElementById('consultingContactEmail').value.trim();
+            var phone = document.getElementById('consultingContactPhone').value.trim();
+            var company = document.getElementById('consultingContactCompany').value.trim();
             
-            var validation = LeadValidator.validateLead({ name: name, email: email, phone: null });
+            var validation = LeadValidator.validateLead({ name: name, email: email, phone: phone });
             
             if (!validation.isValid) {
                 alert(validation.errors.join('\n'));
                 return;
             }
             
+            if (!company) {
+                alert('Please enter your company name.');
+                return;
+            }
+            
             // Disable form immediately
-            var formContainer = document.getElementById('limitedContactFormContainer');
+            var formContainer = document.getElementById('consultingContactFormContainer');
             if (formContainer) {
                 formContainer.classList.add('disabled');
             }
             
             hasSubmittedContact = true;
             
-            leadData.contact = { 
-                name: name, 
-                email: email, 
+            // Send to webhook
+            var webhookData = {
+                timestamp: new Date().toISOString(),
+                name: name,
+                email: email,
+                phone: phone,
                 company: company,
-                status: 'future_opportunity',
-                umbrella: leadData.umbrella || 'Unknown',
+                industry: leadData.umbrella || 'Unknown',
+                structure: leadData.structure || 'N/A',
                 vertical: leadData.vertical || 'Unknown',
-                ebitda: leadData.ebitda || 'Under $5M'
+                ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : 'Under $5M',
+                location: leadData.location || 'Not specified',
+                qualified: 'No',
+                lead_type: 'Consulting',
+                source: 'Website Chat Widget',
+                status: 'New'
             };
+            
+            fetch('https://n8n.planbexpat.com/webhook/bdc-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookData)
+            }).then(function(response) {
+                console.log('Consulting lead webhook response:', response.status);
+            }).catch(function(error) {
+                console.log('Webhook error (non-blocking):', error);
+            });
             
             addUserMessage(name + ' - ' + email);
             
             showTyping(function() {
-                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve saved your information and will reach out if an opportunity arises that matches your profile.<br><br>In the meantime, feel free to explore more about Bird Dog Capital.', [
+                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and will reach out soon to discuss consulting opportunities.<br><br>In the meantime, feel free to explore more about Bird Dog Capital.', [
                     { text: "See case studies", action: function() { showTrackRecord(); } },
                     { text: "How we're different", action: function() { showPhilosophy(); } },
                     { text: "Back to menu", action: function() { showInfoMenu(); } }
                 ]);
-                
-                console.log('Future lead captured:', leadData);
             }, 1200);
+        }
+        
+        // LIMITED CONTACT FORM - For near-misses (keeping for backwards compatibility)
+        function showLimitedContactForm() {
+            showConsultingContactForm();
         }
         
         // CONTACT FORM
@@ -2517,6 +2547,7 @@
                 ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : 'Not specified',
                 location: leadData.location || 'Not specified',
                 qualified: isEligible ? 'Yes' : 'No',
+                lead_type: 'Investment',
                 source: 'Website Chat Widget',
                 status: 'New'
             };
