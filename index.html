@@ -2141,7 +2141,7 @@
             var messages = document.getElementById('chatMessages');
             var msg = document.createElement('div');
             msg.className = 'message bot';
-            msg.innerHTML = '<div class="message-content"><strong>What\'s the approximate annual EBITDA?</strong><div class="slider-container"><input type="range" min="1" max="50" value="5" id="ebitdaSlider" oninput="updateEbitdaDisplay(this.value)"><div class="slider-value" id="ebitdaValue">$5M</div></div><p style="font-size:12px;color:#888;margin-top:8px;">Our typical minimum is $5M EBITDA</p><button class="chat-form-btn" onclick="submitEbitda()">Continue</button></div>';
+            msg.innerHTML = '<div class="message-content"><strong>What\'s the approximate annual EBITDA?</strong><div class="slider-container"><input type="range" min="1" max="50" value="5" id="ebitdaSlider" oninput="updateEbitdaDisplay(this.value)"><div class="slider-value" id="ebitdaValue">$5M</div></div><p style="font-size:12px;color:#888;margin-top:8px;">Drag to select. Investment minimum is $5M; consulting available for $1M-$5M.</p><button class="chat-form-btn" onclick="submitEbitda()">Continue</button></div>';
             messages.appendChild(msg);
             msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -2178,34 +2178,52 @@
         }
         
         function evaluateEligibility() {
-            var meetsEbitda = leadData.ebitda >= 5;
+            var ebitda = leadData.ebitda;
             var inTargetVertical = selectedUmbrella !== null && selectedVertical !== null;
             
-            hasCompletedEligibility = true; // Mark that user went through eligibility
+            hasCompletedEligibility = true;
             
-            if (meetsEbitda && inTargetVertical) {
+            // $5M+ and right vertical = ACQUISITION
+            if (ebitda >= 5 && inTargetVertical) {
                 isEligible = true;
-                unlockChatInput();
-                addBotMessage('<strong>Great news!</strong> Based on what you\'ve shared, this looks like a strong potential fit for Bird Dog Capital.<br><br>• <strong>Industry:</strong> ' + leadData.umbrella + ' - ' + leadData.vertical + '<br>• <strong>EBITDA:</strong> $' + leadData.ebitda + 'M<br>• <strong>Location:</strong> ' + leadData.location + '<br><br>You now have full chat access. We\'d love to schedule a confidential conversation.', [
-                    { text: "Leave my contact info", action: function() { showContactForm(); }, primary: true },
+                leadData.leadType = 'Investment';
+                
+                addBotMessage('<strong>Great news!</strong> Based on what you\'ve shared, this looks like a strong potential fit for Bird Dog Capital.<br><br>• <strong>Industry:</strong> ' + leadData.umbrella + ' - ' + leadData.vertical + '<br>• <strong>EBITDA:</strong> $' + leadData.ebitda + 'M<br>• <strong>Location:</strong> ' + leadData.location + '<br><br>Let\'s get your contact details so we can schedule a confidential conversation.');
+                
+                // Auto-show contact form after brief pause
+                showTyping(function() {
+                    showContactForm();
+                }, 1000);
+                
+            // $1M-$5M and right vertical = CONSULTING OPPORTUNITY
+            } else if (ebitda >= 1 && ebitda < 5 && inTargetVertical) {
+                leadData.leadType = 'Consulting';
+                
+                var gap = 5 - ebitda;
+                addBotMessage('<strong>Thank you for sharing.</strong><br><br>At $' + ebitda + 'M EBITDA, you\'re not quite at our investment threshold yet, but you\'re in a great position for growth.<br><br>Our team offers <strong>consulting services</strong> to help businesses like yours optimize operations, improve unit economics, and position for future investment.<br><br>Let\'s connect to explore how we can help you bridge that $' + gap + 'M gap.');
+                
+                // Auto-show consulting contact form after brief pause
+                showTyping(function() {
+                    showConsultingContactForm();
+                }, 1000);
+                
+            // <$1M and right vertical = TOO SMALL
+            } else if (ebitda < 1 && inTargetVertical) {
+                leadData.leadType = 'Unqualified';
+                
+                addBotMessage('Thank you for your interest in Bird Dog Capital.<br><br>Our consulting and investment services typically work with businesses generating at least <strong>$1M in annual EBITDA</strong>.<br><br>We\'d encourage you to revisit us as your business grows. In the meantime, feel free to explore our approach and case studies.', [
                     { text: "Our approach", action: function() { showApproach(); } },
                     { text: "Case studies", action: function() { showTrackRecord(); } },
                     { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } }
                 ]);
-                showTyping(function() {
-                    addBotMessage('More to explore:', [
-                        { text: "Investment criteria", action: function() { showCriteriaInfo(); } },
-                        { text: "How we're different", action: function() { showPhilosophy(); } },
-                        { text: "Our industries", action: function() { showIndustryInfo(); } },
-                        { text: "Deal structure", action: function() { showDealStructure(); } }
-                    ]);
-                }, 500);
-            } else if (!meetsEbitda && inTargetVertical) {
-                // Under EBITDA threshold but right industry - offer consulting
-                leadData.leadType = 'Consulting';
-                addBotMessage('Thank you for sharing. Although not yet a fit for investment, we offer <strong>consulting services</strong> that might be able to pave the way to such growth horizons.<br><br>Our team has helped businesses optimize operations, improve unit economics, and position for future investment.<br><br>Would you like to explore a consulting conversation?', [
-                    { text: "Yes, tell me more", action: function() { showConsultingContactForm(); } },
-                    { text: "Learn about Bird Dog", action: function() { showInfoMenu(); } }
+                
+            // Wrong vertical (shouldn't reach here normally, but safety net)
+            } else if (!inTargetVertical) {
+                leadData.leadType = 'Unqualified';
+                
+                addBotMessage('Thank you for your interest. Bird Dog Capital focuses specifically on:<br><br>• <strong>Multi-Unit:</strong> Franchisors and corporate-owned chains<br>• <strong>Critical Infrastructure:</strong> Telecom, power/electrical, and water/wastewater<br><br>Feel free to explore our approach and case studies.', [
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } }
                 ]);
             }
         }
@@ -2246,7 +2264,7 @@
             }
             
             showTyping(function() {
-                var html = '<div class="message-content"><strong>Let\'s start the conversation:</strong><br><br><p style="font-size:12px;color:#666;margin-bottom:12px;">Share your details and we\'ll reach out to discuss how we can help.</p><div class="chat-form" id="consultingContactFormContainer">';
+                var html = '<div class="message-content"><strong>Share your details:</strong><br><br><div class="chat-form" id="consultingContactFormContainer">';
                 html += '<label class="form-label">Full Name *</label>';
                 html += '<input type="text" id="consultingContactName" placeholder="John Smith">';
                 html += '<label class="form-label">Email Address *</label>';
@@ -2265,7 +2283,8 @@
                 msg.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
-        
+                
+                // CONSULTING CONTACT SUBMIT
         function submitConsultingContact() {
             // Prevent double submission
             if (hasSubmittedContact) {
@@ -2297,6 +2316,13 @@
             
             hasSubmittedContact = true;
             
+            // Calculate EBITDA gap and grade
+            var ebitdaGap = leadData.ebitda ? (5 - leadData.ebitda) : 'Unknown';
+            var grade = 'C'; // Default for $1M-$2M
+            if (leadData.ebitda >= 2) {
+                grade = 'B'; // $2M-$5M = closer to threshold
+            }
+            
             // Send to webhook
             var webhookData = {
                 timestamp: new Date().toISOString(),
@@ -2308,9 +2334,11 @@
                 structure: leadData.structure || 'N/A',
                 vertical: leadData.vertical || 'Unknown',
                 ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : 'Under $5M',
+                ebitda_gap: '$' + ebitdaGap + 'M short',
                 location: leadData.location || 'Not specified',
                 qualified: 'No',
                 lead_type: 'Consulting',
+                grade: grade,
                 source: 'Website Chat Widget',
                 status: 'New'
             };
@@ -2327,11 +2355,13 @@
             
             addUserMessage(name + ' - ' + email);
             
+            // Show thank you message WITH explore buttons (buttons come AFTER submission)
             showTyping(function() {
-                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and will reach out soon to discuss consulting opportunities.<br><br>In the meantime, feel free to explore more about Bird Dog Capital.', [
-                    { text: "See case studies", action: function() { showTrackRecord(); } },
-                    { text: "How we're different", action: function() { showPhilosophy(); } },
-                    { text: "Back to menu", action: function() { showInfoMenu(); } }
+                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and will reach out soon to discuss how we can help grow your business.<br><br>In the meantime, feel free to explore:', [
+                    { text: "Our approach", action: function() { showApproach(); } },
+                    { text: "Case studies", action: function() { showTrackRecord(); } },
+                    { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
+                    { text: "That's all, thanks!", action: function() { endChat(); } }
                 ]);
             }, 1200);
         }
@@ -2545,9 +2575,11 @@
                 structure: structure === 'franchisor' ? 'Franchisor' : (structure === 'companyOperated' ? 'Company-Operated' : 'N/A'),
                 vertical: vertical === 'food' ? 'Food Service' : (vertical === 'nonFood' ? 'Non-Food Services' : (vertical === 'telecom' ? 'Telecommunications' : (vertical === 'power' ? 'Power/Electrical' : (vertical === 'water' ? 'Water/Wastewater' : vertical)))),
                 ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : 'Not specified',
+                ebitda_gap: 'N/A',
                 location: leadData.location || 'Not specified',
                 qualified: isEligible ? 'Yes' : 'No',
-                lead_type: 'Investment',
+                lead_type: leadData.leadType || 'Investment',
+                grade: 'A',
                 source: 'Website Chat Widget',
                 status: 'New'
             };
