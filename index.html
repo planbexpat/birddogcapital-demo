@@ -1916,8 +1916,8 @@
         
         var chatOpen = false;
         var currentFlow = null;
-        var selectedUmbrella = null;
-        var selectedVertical = null;
+        var selectedUmbrella = sessionStorage.getItem('bdcSelectedUmbrella') || null;
+        var selectedVertical = sessionStorage.getItem('bdcSelectedVertical') || null;
         var leadData = JSON.parse(sessionStorage.getItem('bdcLeadData') || '{}');
         var isEligible = sessionStorage.getItem('bdcIsEligible') === 'true';
         var hasSubmittedContact = false;
@@ -1929,6 +1929,8 @@
         function saveLeadData() {
             sessionStorage.setItem('bdcLeadData', JSON.stringify(leadData));
             sessionStorage.setItem('bdcIsEligible', isEligible.toString());
+            sessionStorage.setItem('bdcSelectedUmbrella', selectedUmbrella || '');
+            sessionStorage.setItem('bdcSelectedVertical', selectedVertical || '');
         }
         
         // AI CHAT Configuration
@@ -2027,6 +2029,8 @@
             vapiEnabled = false;
             sessionStorage.removeItem('bdcLeadData');
             sessionStorage.removeItem('bdcIsEligible');
+            sessionStorage.removeItem('bdcSelectedUmbrella');
+            sessionStorage.removeItem('bdcSelectedVertical');
             
             // Lock chat input
             lockChatInput();
@@ -2062,6 +2066,8 @@
             hasSubmittedContact = false;
             sessionStorage.removeItem('bdcLeadData');
             sessionStorage.removeItem('bdcIsEligible');
+            sessionStorage.removeItem('bdcSelectedUmbrella');
+            sessionStorage.removeItem('bdcSelectedVertical');
             hasCompletedEligibility = false;
             vapiEnabled = false;
             lockChatInput();
@@ -3540,10 +3546,10 @@
                 var isUser = container.classList.contains('justify-end');
                 var role = isUser ? 'User' : 'Assistant';
                 
-                // Get the text content from the markdown-content paragraph
-                var textEl = container.querySelector('.markdown-content p');
-                if (textEl) {
-                    var text = textEl.textContent.trim();
+                // Get ALL text content from the markdown-content (handles multiple paragraphs)
+                var markdownContent = container.querySelector('.markdown-content');
+                if (markdownContent) {
+                    var text = markdownContent.textContent.trim();
                     if (text) {
                         messages.push(role + ': ' + text);
                     }
