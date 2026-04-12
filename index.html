@@ -1567,9 +1567,37 @@
                 </button>
             </div>
             <!-- VAPI Widget Container - shown after qualification -->
-            <div id="vapiChatContainer" style="display: none; padding: 10px; background: #f5f3f7; border-top: 1px solid #e0e0e0;">
-                <p style="text-align: center; color: #4A2C5A; font-size: 13px; margin-bottom: 8px;">Chat with our AI assistant:</p>
-                <div id="vapiWidgetSlot" style="display: flex; justify-content: center;"></div>
+            <div id="vapiChatContainer" style="display: none; padding: 12px; background: linear-gradient(135deg, #f5f3f7 0%, #ebe7f0 100%); border-top: 1px solid #d0c8d8;">
+                <button onclick="openVapiChat()" style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    width: 100%;
+                    padding: 14px 20px;
+                    background: linear-gradient(135deg, #4A2C5A 0%, #5D3A6A 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 25px;
+                    font-size: 15px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 4px 15px rgba(74, 44, 90, 0.3);
+                    transition: all 0.2s ease;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(74, 44, 90, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(74, 44, 90, 0.3)';">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="10" r="1" fill="currentColor"></circle>
+                        <circle cx="8" cy="10" r="1" fill="currentColor"></circle>
+                        <circle cx="16" cy="10" r="1" fill="currentColor"></circle>
+                    </svg>
+                    <span>Ask AI Assistant</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+                <p style="text-align: center; color: #6B6B6B; font-size: 11px; margin-top: 8px;">Powered by AI • Available 24/7</p>
+                <div id="vapiWidgetSlot" style="display: none;"></div>
             </div>
             <div class="chat-powered">Powered by <strong>Leedli</strong> by Astrasna</div>
         </div>
@@ -3305,6 +3333,35 @@
     </div>
     
     <script>
+        // Open VAPI chat when custom button is clicked
+        function openVapiChat() {
+            // First make sure VAPI wrapper is visible
+            var vapiWrapper = document.getElementById('vapi-wrapper');
+            if (vapiWrapper) {
+                vapiWrapper.style.display = 'block';
+                vapiWrapper.style.position = 'fixed';
+                vapiWrapper.style.bottom = '20px';
+                vapiWrapper.style.right = '20px';
+                vapiWrapper.style.zIndex = '10000';
+            }
+            
+            // Click the VAPI widget to open chat
+            setTimeout(function() {
+                var clickable = document.querySelector('.vapi-widget-wrapper div div');
+                if (clickable) {
+                    clickable.click();
+                    console.log('[BDC] VAPI chat opened');
+                } else {
+                    // Try alternative selector
+                    var wrapper = document.querySelector('.vapi-widget-wrapper');
+                    if (wrapper) {
+                        wrapper.click();
+                        console.log('[BDC] VAPI wrapper clicked');
+                    }
+                }
+            }, 200);
+        }
+        
         // Move VAPI widget into chat window after qualification
         function activateVapiInChat() {
             var vapiWrapper = document.getElementById('vapi-wrapper');
@@ -3313,8 +3370,7 @@
             if (vapiWrapper && vapiSlot) {
                 // Move the VAPI widget into the chat window
                 vapiSlot.appendChild(vapiWrapper);
-                vapiWrapper.style.display = 'block';
-                console.log('[BDC] VAPI widget moved into chat window');
+                console.log('[BDC] VAPI widget ready');
             }
         }
         
