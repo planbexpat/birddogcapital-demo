@@ -3480,9 +3480,149 @@
     </div>
     
     <script>
+        // VAPI Chat Capture System
+        var vapiChatMessages = [];
+        var vapiInactivityTimer = null;
+        var vapiChatSent = false;
+        var VAPI_INACTIVITY_TIMEOUT = 60000; // 1 minute
+        
+        // Reset inactivity timer on any chat activity
+        function resetVapiInactivityTimer() {
+            if (vapiInactivityTimer) {
+                clearTimeout(vapiInactivityTimer);
+            }
+            vapiInactivityTimer = setTimeout(function() {
+                console.log('[BDC] VAPI inactivity timeout - capturing chat');
+                captureAndSendVapiChat();
+            }, VAPI_INACTIVITY_TIMEOUT);
+        }
+        
+        // Capture messages from VAPI widget
+        function captureVapiMessages() {
+            var messages = [];
+            var vapiWidget = document.querySelector('vapi-widget');
+            if (!vapiWidget) return messages;
+            
+            // Look for message elements in the VAPI widget
+            var messageElements = vapiWidget.querySelectorAll('[class*="message"], [class*="Message"]');
+            messageElements.forEach(function(el) {
+                var text = el.textContent.trim();
+                if (text) {
+                    // Try to determine if user or assistant
+                    var isUser = el.className.includes('user') || el.className.includes('User') || 
+                                 el.closest('[class*="user"]') || el.closest('[class*="User"]');
+                    var role = isUser ? 'User' : 'Assistant';
+                    messages.push(role + ': ' + text);
+                }
+            });
+            
+            return messages;
+        }
+        
+        // Build transcript from captured messages
+        function buildVapiTranscript() {
+            // Try to get messages from DOM
+            var domMessages = captureVapiMessages();
+            if (domMessages.length > 0) {
+                return domMessages.join('\n');
+            }
+            // Fall back to tracked messages
+            if (vapiChatMessages.length > 0) {
+                return vapiChatMessages.join('\n');
+            }
+            return '';
+        }
+        
+        // Send captured chat to n8n webhook
+        function captureAndSendVapiChat() {
+            if (vapiChatSent) {
+                console.log('[BDC] VAPI chat already sent, skipping');
+                return;
+            }
+            
+            var transcript = buildVapiTranscript();
+            if (!transcript) {
+                console.log('[BDC] No VAPI transcript to send');
+                return;
+            }
+            
+            vapiChatSent = true;
+            console.log('[BDC] Sending VAPI chat to webhook:', transcript.substring(0, 100) + '...');
+            
+            var payload = {
+                message: {
+                    type: 'end-of-call-report',
+                    transcript: transcript,
+                    source: 'frontend-capture'
+                }
+            };
+            
+            fetch('https://n8n.planbexpat.com/webhook/bdc-vapi-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function(response) {
+                console.log('[BDC] VAPI chat webhook response:', response.status);
+            }).catch(function(error) {
+                console.log('[BDC] VAPI chat webhook error:', error);
+                vapiChatSent = false; // Allow retry on error
+            });
+        }
+        
+        // Monitor VAPI widget for changes
+        function setupVapiChatMonitor() {
+            var vapiWidget = document.querySelector('vapi-widget');
+            if (!vapiWidget) {
+                setTimeout(setupVapiChatMonitor, 1000);
+                return;
+            }
+            
+            // Watch for DOM changes (new messages)
+            var observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        resetVapiInactivityTimer();
+                    }
+                });
+            });
+            
+            observer.observe(vapiWidget, { childList: true, subtree: true });
+            console.log('[BDC] VAPI chat monitor active');
+        }
+        
+        // Detect VAPI widget close
+        function setupVapiCloseDetection() {
+            // Watch for VAPI wrapper being hidden
+            var vapiWrapper = document.getElementById('vapi-wrapper');
+            if (!vapiWrapper) return;
+            
+            var wrapperObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'style') {
+                        var display = vapiWrapper.style.display;
+                        if (display === 'none') {
+                            console.log('[BDC] VAPI wrapper hidden - capturing chat');
+                            captureAndSendVapiChat();
+                        }
+                    }
+                });
+            });
+            
+            wrapperObserver.observe(vapiWrapper, { attributes: true });
+            
+            // Also capture on page unload
+            window.addEventListener('beforeunload', function() {
+                captureAndSendVapiChat();
+            });
+        }
+        
         // Open VAPI chat when custom button is clicked
         function openVapiChat() {
             console.log('[BDC] openVapiChat called');
+            
+            // Reset chat state for new session
+            vapiChatMessages = [];
+            vapiChatSent = false;
             
             // First make sure VAPI wrapper is visible
             var vapiWrapper = document.getElementById('vapi-wrapper');
@@ -3490,6 +3630,11 @@
                 vapiWrapper.style.display = 'block';
                 console.log('[BDC] VAPI wrapper visible');
             }
+            
+            // Start monitoring and inactivity timer
+            setupVapiChatMonitor();
+            setupVapiCloseDetection();
+            resetVapiInactivityTimer();
             
             // Wait for VAPI to fully render
             setTimeout(function() {
