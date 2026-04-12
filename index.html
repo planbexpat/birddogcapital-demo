@@ -3579,10 +3579,10 @@
                     source: 'frontend-capture'
                 },
                 leadData: {
-                    name: leadData.name || null,
-                    email: leadData.email || null,
-                    phone: leadData.phone || null,
-                    company: leadData.company || null,
+                    name: (leadData.contact && leadData.contact.name) || null,
+                    email: (leadData.contact && leadData.contact.email) || null,
+                    phone: (leadData.contact && leadData.contact.phone) || null,
+                    company: (leadData.contact && leadData.contact.company) || null,
                     industry: industryDisplay,
                     structure: leadData.structure || null,
                     vertical: verticalDisplay,
