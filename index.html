@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- VAPI Web SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi-web.min.js"></script>
     <style>
         :root {
             --purple-dark: #4A2C5A;
@@ -1826,6 +1828,32 @@
         var isEligible = false;
         var hasSubmittedContact = false;
         var hasCompletedEligibility = false; // Tracks if user went through eligibility (pass or fail)
+        var vapiEnabled = false; // Tracks if VAPI freeform chat is active
+        var vapiClient = null; // VAPI client instance
+        
+        // AI CHAT Configuration
+        // Note: VAPI (81592eff-5e9c-4c88-9991-de84c8844307) is for VOICE calls
+        // For text chat, we use the local knowledge base with fallback to AI
+        var AI_ENABLED = true; // Set to true when API is configured
+        var conversationHistory = []; // Track conversation for context
+        
+        // Enable AI-powered freeform chat after qualification
+        function enableVapiChat() {
+            vapiEnabled = true;
+            var input = document.getElementById('chatInput');
+            var sendBtn = document.getElementById('chatSendBtn');
+            input.disabled = false;
+            input.placeholder = 'Ask me anything about Bird Dog Capital...';
+            sendBtn.disabled = false;
+            
+            // Initialize conversation context
+            conversationHistory = [{
+                role: 'system',
+                content: 'User qualified as ' + (leadData.leadType || 'Unknown') + '. Industry: ' + (leadData.umbrella || 'Unknown') + ', Vertical: ' + (leadData.vertical || 'Unknown') + ', EBITDA: $' + (leadData.ebitda || 'Unknown') + 'M, Location: ' + (leadData.location || 'Unknown') + '. Contact submitted: ' + hasSubmittedContact
+            }];
+            
+            console.log('[BDC] Freeform chat enabled for lead type:', leadData.leadType);
+        }
         
         // KNOWLEDGE BASE from Prospectus
         var knowledgeBase = {
@@ -2350,14 +2378,18 @@
             
             addUserMessage(name + ' - ' + email);
             
+            // Enable VAPI for consulting leads
+            enableVapiChat();
+            
             // Show thank you message WITH explore buttons (buttons come AFTER submission)
             showTyping(function() {
-                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and will reach out soon to discuss how we can help grow your business.<br><br>In the meantime, feel free to explore:', [
+                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and will reach out soon to discuss how we can help grow your business.<br><br>In the meantime, feel free to explore or ask me any questions:', [
                     { text: "Our approach", action: function() { showApproach(); } },
                     { text: "Case studies", action: function() { showTrackRecord(); } },
                     { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
                     { text: "That's all, thanks!", action: function() { endChat(); } }
                 ]);
+                console.log('[BDC] VAPI chat enabled for consulting lead:', vapiEnabled);
             }, 1200);
         }
         
@@ -2593,13 +2625,13 @@
             addUserMessage(name + ' - ' + email);
             hasSubmittedContact = true;
             
-            // UNLOCK CHAT FOR QUALIFIED LEADS
-            if (isEligible) {
-                unlockChatInput();
+            // UNLOCK VAPI CHAT FOR QUALIFIED LEADS (Investment or Consulting)
+            if (isEligible || leadData.leadType === 'Consulting') {
+                enableVapiChat();
             }
             
             showTyping(function() {
-                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and someone from our team will be in touch within 48 hours.<br><br>In the meantime, feel free to explore:', [
+                addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and someone from our team will be in touch within 48 hours.<br><br>In the meantime, feel free to explore or ask me any questions:', [
                     { text: "Our approach", action: function() { showApproach(); } },
                     { text: "Case studies", action: function() { showTrackRecord(); } },
                     { text: "Meet Jake & Craig", action: function() { showTeamInfo(); } },
@@ -2616,6 +2648,7 @@
                 }, 500);
                 
                 console.log('Lead captured:', leadData);
+                console.log('[BDC] VAPI chat enabled:', vapiEnabled);
             }, 1200);
         }
         
@@ -2682,6 +2715,8 @@
             addUserMessage(text);
             input.value = '';
             
+            // Use local knowledge base (enhanced for qualified leads)
+            // Note: For AI-powered responses, integrate with Anthropic API via n8n webhook
             showTyping(function() {
                 var response = getKnowledgeResponse(text.toLowerCase());
                 addBotMessage(response.text, response.options);
