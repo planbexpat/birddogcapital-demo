@@ -10,13 +10,6 @@
     <!-- VAPI Web Widget SDK -->
     <script src="https://unpkg.com/@vapi-ai/client-sdk-react/dist/embed/widget.umd.js" async type="text/javascript"></script>
     <style>
-        /* Hide VAPI widget by default - show only after qualification */
-        .vapi-widget-wrapper {
-            display: none !important;
-        }
-        .vapi-widget-wrapper.vapi-active {
-            display: block !important;
-        }
         :root {
             --purple-dark: #4A2C5A;
             --purple-mid: #5D3A6A;
@@ -1573,6 +1566,11 @@
                     <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </div>
+            <!-- VAPI Widget Container - shown after qualification -->
+            <div id="vapiChatContainer" style="display: none; padding: 10px; background: #f5f3f7; border-top: 1px solid #e0e0e0;">
+                <p style="text-align: center; color: #4A2C5A; font-size: 13px; margin-bottom: 8px;">Chat with our AI assistant:</p>
+                <div id="vapiWidgetSlot" style="display: flex; justify-content: center;"></div>
+            </div>
             <div class="chat-powered">Powered by <strong>Leedli</strong> by Astrasna</div>
         </div>
         
@@ -1848,15 +1846,20 @@
         function enableVapiChat() {
             vapiEnabled = true;
             
-            // Show the VAPI widget (hidden by default)
-            showVapiWidget();
+            // Hide the old chat input area
+            var oldInput = document.getElementById('chatInputArea');
+            if (oldInput) {
+                oldInput.style.display = 'none';
+            }
             
-            // Update the built-in chat input placeholder
-            var input = document.getElementById('chatInput');
-            var sendBtn = document.getElementById('chatSendBtn');
-            input.disabled = false;
-            input.placeholder = 'Ask me anything about Bird Dog Capital...';
-            sendBtn.disabled = false;
+            // Show the VAPI container inside the chat window
+            var vapiContainer = document.getElementById('vapiChatContainer');
+            if (vapiContainer) {
+                vapiContainer.style.display = 'block';
+            }
+            
+            // Add a message telling user to use the AI chat
+            addBotMessage('You now have access to our AI assistant. Click the button below to ask any questions about Bird Dog Capital.');
             
             console.log('[BDC] VAPI text chat enabled for lead type:', leadData.leadType);
         }
@@ -3283,52 +3286,44 @@
         }
     </script>
     
-    <!-- VAPI Text Chat Widget - Hidden until qualification -->
-    <div id="vapi-wrapper" style="position: fixed; bottom: 20px; left: 20px; z-index: 9998;">
+    <!-- VAPI Text Chat Widget - Will be moved into chat window after qualification -->
+    <div id="vapi-wrapper" style="display: none;">
         <vapi-widget 
             public-key="cc2a754e-9ae6-4234-ac04-230fcce404a2" 
             assistant-id="81592eff-5e9c-4c88-9991-de84c8844307"
             mode="chat"
             theme="light"
-            position="bottom-left"
             accent-color="#4A2C5A"
             button-base-color="#4A2C5A"
             button-accent-color="#FFFFFF"
             title="Bird Dog Capital"
-            cta-title="Ask Us"
-            cta-subtitle="We're here to help"
+            cta-title="Ask AI"
+            cta-subtitle="Questions? Ask here"
             chat-placeholder="Type your question..."
             chat-first-message="You're all set. I can answer questions about Bird Dog — our approach, criteria, track record, or process. What would you like to know?"
         ></vapi-widget>
     </div>
     
     <script>
-        // VAPI Widget Control Functions
-        function showVapiWidget() {
-            var wrapper = document.querySelector('.vapi-widget-wrapper');
-            if (wrapper) {
-                wrapper.classList.add('vapi-active');
-                console.log('[BDC] VAPI widget shown');
+        // Move VAPI widget into chat window after qualification
+        function activateVapiInChat() {
+            var vapiWrapper = document.getElementById('vapi-wrapper');
+            var vapiSlot = document.getElementById('vapiWidgetSlot');
+            
+            if (vapiWrapper && vapiSlot) {
+                // Move the VAPI widget into the chat window
+                vapiSlot.appendChild(vapiWrapper);
+                vapiWrapper.style.display = 'block';
+                console.log('[BDC] VAPI widget moved into chat window');
             }
         }
         
-        function hideVapiWidget() {
-            var wrapper = document.querySelector('.vapi-widget-wrapper');
-            if (wrapper) {
-                wrapper.classList.remove('vapi-active');
-            }
-        }
-        
-        function openVapiWidget() {
-            showVapiWidget();
-            // Click the inner div to open the chat panel
-            setTimeout(function() {
-                var clickable = document.querySelector('.vapi-widget-wrapper div div');
-                if (clickable) {
-                    clickable.click();
-                }
-            }, 100);
-        }
+        // Override enableVapiChat to also activate VAPI in chat
+        var originalEnableVapiChat = enableVapiChat;
+        enableVapiChat = function() {
+            originalEnableVapiChat();
+            activateVapiInChat();
+        };
     </script>
 </body>
 </html>
