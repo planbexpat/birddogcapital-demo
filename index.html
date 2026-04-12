@@ -3557,6 +3557,21 @@
             vapiChatSent = true;
             console.log('[BDC] Sending VAPI chat to webhook:', transcript.substring(0, 100) + '...');
             
+            // Get vertical display name
+            var verticalDisplay = '';
+            if (selectedVertical === 'food') verticalDisplay = 'Food Service';
+            else if (selectedVertical === 'nonFood') verticalDisplay = 'Non-Food Services';
+            else if (selectedVertical === 'telecom') verticalDisplay = 'Telecommunications';
+            else if (selectedVertical === 'power') verticalDisplay = 'Power/Electrical';
+            else if (selectedVertical === 'water') verticalDisplay = 'Water/Wastewater';
+            else verticalDisplay = selectedVertical || '';
+            
+            // Get industry display name
+            var industryDisplay = '';
+            if (selectedUmbrella === 'multiUnit') industryDisplay = 'Multi-Unit Business';
+            else if (selectedUmbrella === 'criticalInfra') industryDisplay = 'Critical Infrastructure';
+            else industryDisplay = selectedUmbrella || '';
+            
             var payload = {
                 message: {
                     type: 'end-of-call-report',
@@ -3568,12 +3583,14 @@
                     email: leadData.email || null,
                     phone: leadData.phone || null,
                     company: leadData.company || null,
-                    umbrella: leadData.umbrella || null,
+                    industry: industryDisplay,
                     structure: leadData.structure || null,
-                    vertical: leadData.vertical || null,
-                    ebitda: leadData.ebitda || null,
+                    vertical: verticalDisplay,
+                    ebitda: leadData.ebitda ? '$' + leadData.ebitda + 'M' : null,
                     location: leadData.location || null,
-                    leadType: leadData.leadType || null
+                    qualified: isEligible ? 'Yes' : 'No',
+                    leadType: leadData.leadType || null,
+                    grade: isEligible ? 'A' : (leadData.leadType === 'Consulting' ? 'B' : 'C')
                 }
             };
             
