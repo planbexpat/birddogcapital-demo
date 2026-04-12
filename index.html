@@ -3650,6 +3650,8 @@
             var observer = new MutationObserver(function(mutations) {
                 mutations.forEach(function(mutation) {
                     if (mutation.addedNodes.length > 0) {
+                        // New message detected - reset timer AND allow re-sending
+                        vapiChatSent = false;
                         resetVapiInactivityTimer();
                     }
                 });
