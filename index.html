@@ -7,9 +7,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- VAPI Web SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/@vapi-ai/web@latest/dist/vapi-web.min.js"></script>
+    <!-- VAPI Web Widget SDK -->
+    <script src="https://unpkg.com/@vapi-ai/client-sdk-react/dist/embed/widget.umd.js" async type="text/javascript"></script>
     <style>
+        /* Hide VAPI widget by default - show only after qualification */
+        .vapi-widget-wrapper {
+            display: none !important;
+        }
+        .vapi-widget-wrapper.vapi-active {
+            display: block !important;
+        }
         :root {
             --purple-dark: #4A2C5A;
             --purple-mid: #5D3A6A;
@@ -1832,27 +1839,26 @@
         var vapiClient = null; // VAPI client instance
         
         // AI CHAT Configuration
-        // Note: VAPI (81592eff-5e9c-4c88-9991-de84c8844307) is for VOICE calls
-        // For text chat, we use the local knowledge base with fallback to AI
-        var AI_ENABLED = true; // Set to true when API is configured
-        var conversationHistory = []; // Track conversation for context
+        // VAPI Assistant ID: 81592eff-5e9c-4c88-9991-de84c8844307
+        // VAPI supports text chat via mode="chat" in the widget
+        var AI_ENABLED = true;
+        var conversationHistory = [];
         
-        // Enable AI-powered freeform chat after qualification
+        // Enable VAPI text chat after qualification
         function enableVapiChat() {
             vapiEnabled = true;
+            
+            // Show the VAPI widget (hidden by default)
+            showVapiWidget();
+            
+            // Update the built-in chat input placeholder
             var input = document.getElementById('chatInput');
             var sendBtn = document.getElementById('chatSendBtn');
             input.disabled = false;
             input.placeholder = 'Ask me anything about Bird Dog Capital...';
             sendBtn.disabled = false;
             
-            // Initialize conversation context
-            conversationHistory = [{
-                role: 'system',
-                content: 'User qualified as ' + (leadData.leadType || 'Unknown') + '. Industry: ' + (leadData.umbrella || 'Unknown') + ', Vertical: ' + (leadData.vertical || 'Unknown') + ', EBITDA: $' + (leadData.ebitda || 'Unknown') + 'M, Location: ' + (leadData.location || 'Unknown') + '. Contact submitted: ' + hasSubmittedContact
-            }];
-            
-            console.log('[BDC] Freeform chat enabled for lead type:', leadData.leadType);
+            console.log('[BDC] VAPI text chat enabled for lead type:', leadData.leadType);
         }
         
         // KNOWLEDGE BASE from Prospectus
@@ -3274,6 +3280,54 @@
                     { text: "Performance over promises", action: function() { showPhilosophyDetail('performance'); } }
                 ]);
             });
+        }
+    </script>
+    
+    <!-- VAPI Text Chat Widget - Hidden until qualification -->
+    <div id="vapi-wrapper" style="position: fixed; bottom: 20px; left: 20px; z-index: 9998;">
+        <vapi-widget 
+            public-key="cc2a754e-9ae6-4234-ac04-230fcce404a2" 
+            assistant-id="81592eff-5e9c-4c88-9991-de84c8844307"
+            mode="chat"
+            theme="light"
+            position="bottom-left"
+            accent-color="#4A2C5A"
+            button-base-color="#4A2C5A"
+            button-accent-color="#FFFFFF"
+            title="Bird Dog Capital"
+            cta-title="Ask Us"
+            cta-subtitle="We're here to help"
+            chat-placeholder="Type your question..."
+            chat-first-message="You're all set. I can answer questions about Bird Dog — our approach, criteria, track record, or process. What would you like to know?"
+        ></vapi-widget>
+    </div>
+    
+    <script>
+        // VAPI Widget Control Functions
+        function showVapiWidget() {
+            var wrapper = document.querySelector('.vapi-widget-wrapper');
+            if (wrapper) {
+                wrapper.classList.add('vapi-active');
+                console.log('[BDC] VAPI widget shown');
+            }
+        }
+        
+        function hideVapiWidget() {
+            var wrapper = document.querySelector('.vapi-widget-wrapper');
+            if (wrapper) {
+                wrapper.classList.remove('vapi-active');
+            }
+        }
+        
+        function openVapiWidget() {
+            showVapiWidget();
+            // Click the inner div to open the chat panel
+            setTimeout(function() {
+                var clickable = document.querySelector('.vapi-widget-wrapper div div');
+                if (clickable) {
+                    clickable.click();
+                }
+            }, 100);
         }
     </script>
 </body>
