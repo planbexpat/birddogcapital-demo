@@ -3376,6 +3376,26 @@
     </script>
     
     <!-- VAPI Text Chat Widget - Will be moved into chat window after qualification -->
+    <style>
+        /* Fix VAPI panel height to fit screen */
+        #vapi-wrapper .vapi-widget-wrapper > div > div {
+            max-height: calc(100vh - 100px) !important;
+            height: auto !important;
+        }
+        /* Mobile-specific sizing */
+        @media (max-width: 768px) {
+            #vapi-wrapper .vapi-widget-wrapper > div > div {
+                max-height: calc(100vh - 80px) !important;
+                width: calc(100vw - 40px) !important;
+                max-width: 360px !important;
+            }
+        }
+        /* Ensure close button is always visible */
+        #vapi-wrapper .vapi-widget-wrapper button[title="Close"],
+        #vapi-wrapper .vapi-widget-wrapper button svg path[d*="208.49"] {
+            display: flex !important;
+        }
+    </style>
     <div id="vapi-wrapper" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 99999;">
         <vapi-widget 
             public-key="cc2a754e-9ae6-4234-ac04-230fcce404a2" 
@@ -3405,48 +3425,54 @@
                 console.log('[BDC] VAPI wrapper visible');
             }
             
-            // Find and click the VAPI widget button (the chat bubble)
-            // VAPI creates a button inside vapi-widget > .vapi-widget-wrapper
+            // Wait for VAPI to fully render
             setTimeout(function() {
-                // The VAPI widget renders a clickable div with cursor:pointer
+                // Method 1: Find the "Ask AI" button text and click its parent
                 var vapiWidget = document.querySelector('vapi-widget');
-                if (vapiWidget) {
-                    // Find all divs inside and look for the clickable one
-                    var allDivs = vapiWidget.querySelectorAll('div');
-                    for (var i = 0; i < allDivs.length; i++) {
-                        var div = allDivs[i];
-                        var style = window.getComputedStyle(div);
-                        // The button has cursor:pointer and is relatively small (the bubble)
-                        if (style.cursor === 'pointer' && style.position === 'fixed') {
+                if (!vapiWidget) {
+                    console.log('[BDC] No vapi-widget found');
+                    return;
+                }
+                
+                // Look for the bubble/button - it's the small fixed div
+                var wrapper = vapiWidget.querySelector('.vapi-widget-wrapper');
+                if (wrapper) {
+                    var fixedDivs = wrapper.querySelectorAll('div[style*="position: fixed"]');
+                    console.log('[BDC] Found', fixedDivs.length, 'fixed divs');
+                    
+                    // The bubble is the smaller fixed div (not the chat panel)
+                    for (var i = 0; i < fixedDivs.length; i++) {
+                        var div = fixedDivs[i];
+                        var rect = div.getBoundingClientRect();
+                        console.log('[BDC] Fixed div', i, 'size:', rect.width, 'x', rect.height);
+                        
+                        // Chat panel is ~448x640, bubble is ~60x80
+                        if (rect.width < 200 && rect.height < 200) {
+                            // This is the bubble, click it
                             div.click();
-                            console.log('[BDC] Clicked VAPI fixed div at index', i);
+                            console.log('[BDC] Clicked VAPI bubble');
                             return;
                         }
                     }
                     
-                    // Alternative: look for the bubble button by size
-                    for (var j = 0; j < allDivs.length; j++) {
-                        var d = allDivs[j];
-                        var rect = d.getBoundingClientRect();
-                        // VAPI bubble is typically around 48-64px
-                        if (rect.width > 40 && rect.width < 80 && rect.height > 40 && rect.height < 80) {
-                            d.click();
-                            console.log('[BDC] Clicked VAPI bubble by size at index', j, rect);
-                            return;
-                        }
-                    }
+                    // If no small bubble found, the chat might already be open
+                    // Look for and click the close button to toggle
+                    console.log('[BDC] Chat panel may already be open');
                 }
-                
-                console.log('[BDC] Could not find VAPI bubble to click');
-            }, 300);
+            }, 500);
         }
         
-        // Activate VAPI widget after qualification
+        // Activate VAPI widget after qualification - auto-open the chat
         function activateVapiInChat() {
             var vapiWrapper = document.getElementById('vapi-wrapper');
             if (vapiWrapper) {
                 vapiWrapper.style.display = 'block';
                 console.log('[BDC] VAPI widget activated');
+                
+                // Auto-click to open the chat panel after a delay
+                setTimeout(function() {
+                    openVapiChat();
+                }, 800);
             }
         }
         
