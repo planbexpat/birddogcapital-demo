@@ -3376,7 +3376,7 @@
     </script>
     
     <!-- VAPI Text Chat Widget - Will be moved into chat window after qualification -->
-    <div id="vapi-wrapper" style="display: none;">
+    <div id="vapi-wrapper" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 99999;">
         <vapi-widget 
             public-key="cc2a754e-9ae6-4234-ac04-230fcce404a2" 
             assistant-id="81592eff-5e9c-4c88-9991-de84c8844307"
@@ -3398,53 +3398,47 @@
         function openVapiChat() {
             console.log('[BDC] openVapiChat called');
             
-            // First make sure VAPI wrapper is visible and positioned
+            // First make sure VAPI wrapper is visible
             var vapiWrapper = document.getElementById('vapi-wrapper');
             if (vapiWrapper) {
                 vapiWrapper.style.display = 'block';
-                vapiWrapper.style.position = 'fixed';
-                vapiWrapper.style.bottom = '20px';
-                vapiWrapper.style.right = '20px';
-                vapiWrapper.style.zIndex = '10000';
-                console.log('[BDC] VAPI wrapper positioned');
+                console.log('[BDC] VAPI wrapper visible');
             }
             
-            // Wait for VAPI to render, then click
+            // Find and click the VAPI widget button (the chat bubble)
+            // VAPI creates a button inside vapi-widget > .vapi-widget-wrapper
             setTimeout(function() {
-                // Method 1: nested div div (worked for La Paletana)
-                var clickable1 = document.querySelector('.vapi-widget-wrapper div div');
-                if (clickable1) {
-                    clickable1.click();
-                    console.log('[BDC] Clicked: .vapi-widget-wrapper div div');
-                    return;
-                }
-                
-                // Method 2: any element with cursor pointer inside wrapper
-                var wrapper = document.querySelector('.vapi-widget-wrapper');
-                if (wrapper) {
-                    var allDivs = wrapper.querySelectorAll('div');
+                // The VAPI widget renders a clickable div with cursor:pointer
+                var vapiWidget = document.querySelector('vapi-widget');
+                if (vapiWidget) {
+                    // Find all divs inside and look for the clickable one
+                    var allDivs = vapiWidget.querySelectorAll('div');
                     for (var i = 0; i < allDivs.length; i++) {
-                        var style = window.getComputedStyle(allDivs[i]);
-                        if (style.cursor === 'pointer') {
-                            allDivs[i].click();
-                            console.log('[BDC] Clicked pointer element at index', i);
+                        var div = allDivs[i];
+                        var style = window.getComputedStyle(div);
+                        // The button has cursor:pointer and is relatively small (the bubble)
+                        if (style.cursor === 'pointer' && style.position === 'fixed') {
+                            div.click();
+                            console.log('[BDC] Clicked VAPI fixed div at index', i);
                             return;
                         }
                     }
-                    // Fallback: click wrapper itself
-                    wrapper.click();
-                    console.log('[BDC] Clicked wrapper');
-                    return;
+                    
+                    // Alternative: look for the bubble button by size
+                    for (var j = 0; j < allDivs.length; j++) {
+                        var d = allDivs[j];
+                        var rect = d.getBoundingClientRect();
+                        // VAPI bubble is typically around 48-64px
+                        if (rect.width > 40 && rect.width < 80 && rect.height > 40 && rect.height < 80) {
+                            d.click();
+                            console.log('[BDC] Clicked VAPI bubble by size at index', j, rect);
+                            return;
+                        }
+                    }
                 }
                 
-                // Method 3: vapi-widget element
-                var vapiEl = document.querySelector('vapi-widget');
-                if (vapiEl) {
-                    vapiEl.click();
-                    console.log('[BDC] Clicked vapi-widget element');
-                }
-                
-            }, 500);
+                console.log('[BDC] Could not find VAPI bubble to click');
+            }, 300);
         }
         
         // Activate VAPI widget after qualification
@@ -3452,11 +3446,7 @@
             var vapiWrapper = document.getElementById('vapi-wrapper');
             if (vapiWrapper) {
                 vapiWrapper.style.display = 'block';
-                vapiWrapper.style.position = 'fixed';
-                vapiWrapper.style.bottom = '20px';
-                vapiWrapper.style.right = '20px';
-                vapiWrapper.style.zIndex = '10000';
-                console.log('[BDC] VAPI widget activated and positioned');
+                console.log('[BDC] VAPI widget activated');
             }
         }
         
