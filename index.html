@@ -1496,7 +1496,7 @@
                     <p>20+ years of private equity, investment banking, and operations experience. Former CFO of Shakey's USA. Previously with Argonne Capital Group, Roark Capital Group, and Banc of America Securities.</p>
                     <p class="member-contact">
                         <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Contact Jake</a><br>
-                        (404) 909-7657 · Atlanta, GA
+                        Atlanta, GA
                     </p>
                 </div>
             </div>
@@ -1508,7 +1508,6 @@
                     <p class="member-title">Senior Operating Partner</p>
                     <p>20+ years restaurant experience. Former Burger King and Red Robin franchisee (top performer). Co-owner of Colby Restaurant Group. Launched Southern Kissed Chicken and Chuck Lager.</p>
                     <p class="member-contact">
-                        <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Contact Craig</a><br>
                         Atlanta, GA
                     </p>
                 </div>
@@ -1524,12 +1523,8 @@
         
         <div class="contact-info">
             <div class="contact-item">
-                <label>Email</label>
+                <label>Get in Touch</label>
                 <a href="#" onclick="openChat(); return false;" style="cursor:pointer;">Start a conversation</a>
-            </div>
-            <div class="contact-item">
-                <label>Phone</label>
-                <a href="tel:+14049097657">(404) 909-7657</a>
             </div>
             <div class="contact-item">
                 <label>Location</label>
@@ -2027,7 +2022,7 @@
                 ];
                 var ctaBtn = getContactOrFitButton();
                 if (ctaBtn) options.push(ctaBtn);
-                addBotMessage('<strong>Leadership Team:</strong><br><br><strong>Jake LaJoie</strong> - Managing Partner<br>20+ years PE experience<br>(404) 909-7657<br><br><strong>Craig Colby</strong> - Senior Operating Partner<br>20+ years restaurant operations<br>(302) 766-0074<br><br>Atlanta, Georgia', options);
+                addBotMessage('<strong>Leadership Team:</strong><br><br><strong>Jake LaJoie</strong> - Managing Partner<br>20+ years PE experience<br>Atlanta, Georgia<br><br><strong>Craig Colby</strong> - Senior Operating Partner<br>20+ years restaurant operations<br>Atlanta, Georgia', options);
             });
         }
         
@@ -2598,6 +2593,11 @@
             addUserMessage(name + ' - ' + email);
             hasSubmittedContact = true;
             
+            // UNLOCK CHAT FOR QUALIFIED LEADS
+            if (isEligible) {
+                unlockChatInput();
+            }
+            
             showTyping(function() {
                 addBotMessage('<strong>Thank you, ' + name + '!</strong><br><br>We\'ve received your information and someone from our team will be in touch within 48 hours.<br><br>In the meantime, feel free to explore:', [
                     { text: "Our approach", action: function() { showApproach(); } },
@@ -2838,7 +2838,7 @@
             // Contact
             if (text.indexOf('contact') > -1 || text.indexOf('email') > -1 || text.indexOf('phone') > -1 || text.indexOf('reach') > -1 || text.indexOf('call') > -1) {
                 return {
-                    text: '<strong>Contact Us:</strong><br><br><strong>Jake LaJoie</strong>, Managing Partner<br>(404) 909-7657<br><br><strong>Craig Colby</strong>, Senior Operating Partner<br>(302) 766-0074<br><br>Atlanta, Georgia<br>www.birddogcapitalgrp.com',
+                    text: '<strong>Contact Us:</strong><br><br><strong>Jake LaJoie</strong>, Managing Partner<br>Atlanta, Georgia<br><br><strong>Craig Colby</strong>, Senior Operating Partner<br>Atlanta, Georgia<br><br>www.birddogcapitalgrp.com',
                     options: hasSubmittedContact ? [
                         { text: "Ask another question", action: function() { enableQualifiedFreeform(); } }
                     ] : [
@@ -3156,7 +3156,7 @@
                 var ctaBtn = getContactOrFitButton();
                 if (ctaBtn) options.push(ctaBtn);
                 options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
-                addBotMessage('<strong>Jake LaJoie - Managing Partner</strong><br><br>20+ years of private equity, investment banking, and operations experience:<br><br>• Former CFO of Shakey\'s USA<br>• Previously with Argonne Capital Group<br>• Previously with Roark Capital Group<br>• Banc of America Securities background<br><br>Jake brings deep transaction experience and hands-on operational leadership to every deal.<br><br>(404) 909-7657 | Atlanta, GA', options);
+                addBotMessage('<strong>Jake LaJoie - Managing Partner</strong><br><br>20+ years of private equity, investment banking, and operations experience:<br><br>• Former CFO of Shakey\'s USA<br>• Previously with Argonne Capital Group<br>• Previously with Roark Capital Group<br>• Banc of America Securities background<br><br>Jake brings deep transaction experience and hands-on operational leadership to every deal.<br><br>Atlanta, GA', options);
             });
         }
         
@@ -3171,7 +3171,7 @@
                 var ctaBtn = getContactOrFitButton();
                 if (ctaBtn) options.push(ctaBtn);
                 options.push({ text: "Back to menu", action: function() { showInfoMenu(); } });
-                addBotMessage('<strong>Craig Colby - Senior Operating Partner</strong><br><br>20+ years of restaurant and franchise operations experience:<br><br>• Former Burger King franchisee (top performer)<br>• Former Red Robin franchisee<br>• Co-owner of Colby Restaurant Group<br>• Launched Southern Kissed Chicken<br>• Launched Chuck Lager<br><br>Craig brings real-world operator experience from both franchise and corporate perspectives.<br><br>(302) 766-0074 | Atlanta, GA', options);
+                addBotMessage('<strong>Craig Colby - Senior Operating Partner</strong><br><br>20+ years of restaurant and franchise operations experience:<br><br>• Former Burger King franchisee (top performer)<br>• Former Red Robin franchisee<br>• Co-owner of Colby Restaurant Group<br>• Launched Southern Kissed Chicken<br>• Launched Chuck Lager<br><br>Craig brings real-world operator experience from both franchise and corporate perspectives.<br><br>Atlanta, GA', options);
             });
         }
         
