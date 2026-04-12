@@ -3503,16 +3503,24 @@
             var vapiWidget = document.querySelector('vapi-widget');
             if (!vapiWidget) return messages;
             
-            // Look for message elements in the VAPI widget
-            var messageElements = vapiWidget.querySelectorAll('[class*="message"], [class*="Message"]');
-            messageElements.forEach(function(el) {
-                var text = el.textContent.trim();
-                if (text) {
-                    // Try to determine if user or assistant
-                    var isUser = el.className.includes('user') || el.className.includes('User') || 
-                                 el.closest('[class*="user"]') || el.closest('[class*="User"]');
-                    var role = isUser ? 'User' : 'Assistant';
-                    messages.push(role + ': ' + text);
+            // Find the conversation area
+            var conversationArea = vapiWidget.querySelector('.vapi-conversation-area');
+            if (!conversationArea) return messages;
+            
+            // Get all message containers (direct children with flex class)
+            var messageContainers = conversationArea.querySelectorAll(':scope > div.flex');
+            messageContainers.forEach(function(container) {
+                // Check if user (justify-end) or assistant (justify-start)
+                var isUser = container.classList.contains('justify-end');
+                var role = isUser ? 'User' : 'Assistant';
+                
+                // Get the text content from the markdown-content paragraph
+                var textEl = container.querySelector('.markdown-content p');
+                if (textEl) {
+                    var text = textEl.textContent.trim();
+                    if (text) {
+                        messages.push(role + ': ' + text);
+                    }
                 }
             });
             
