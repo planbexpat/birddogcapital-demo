@@ -123,61 +123,6 @@
             width: 100%;
         }
 
-        /* Demo Dropdown */
-        .demo-dropdown {
-            position: relative;
-        }
-        
-        .demo-submenu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: rgba(74, 44, 90, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 8px;
-            padding: 8px 0;
-            min-width: 120px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-            list-style: none;
-            z-index: 1002;
-        }
-        
-        .nav.scrolled .demo-submenu {
-            background: rgba(255, 255, 255, 0.98);
-        }
-        
-        .demo-dropdown:hover .demo-submenu {
-            display: block;
-        }
-        
-        .demo-submenu li {
-            padding: 0;
-        }
-        
-        .demo-submenu a {
-            display: block;
-            padding: 10px 20px;
-            color: rgba(255,255,255,0.9) !important;
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            transition: background 0.2s;
-        }
-        
-        .nav.scrolled .demo-submenu a {
-            color: var(--gray-dark) !important;
-        }
-        
-        .demo-submenu a:hover {
-            background: rgba(255,255,255,0.1);
-        }
-        
-        .nav.scrolled .demo-submenu a:hover {
-            background: rgba(74, 44, 90, 0.1);
-        }
-
         /* Hamburger Menu */
         .hamburger {
             display: none;
@@ -1323,13 +1268,7 @@
     <nav class="nav" id="nav">
         <span class="nav-logo" onclick="document.getElementById('top').scrollIntoView({behavior:'smooth'})">Bird Dog Capital</span>
         <ul class="nav-links" id="navLinks">
-            <li class="demo-dropdown">
-                <span style="color: #D4AF37; font-weight: 600; cursor: pointer;">Demo ▾</span>
-                <ul class="demo-submenu">
-                    <li><a href="demo.html">Demo 1</a></li>
-                    <li><a href="https://youtu.be/w3yfVIYVhbo" target="_blank">Demo 2</a></li>
-                </ul>
-            </li>
+            <li><a href="demo.html" style="color: #D4AF37; font-weight: 600;">Demo</a></li>
             <li><span onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'});closeMenu()">About</span></li>
             <li><span onclick="document.getElementById('industries').scrollIntoView({behavior:'smooth'});closeMenu()">Industries</span></li>
             <li><span onclick="document.getElementById('criteria').scrollIntoView({behavior:'smooth'});closeMenu()">Criteria</span></li>
