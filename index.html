@@ -1918,12 +1918,18 @@
         var currentFlow = null;
         var selectedUmbrella = null;
         var selectedVertical = null;
-        var leadData = {};
-        var isEligible = false;
+        var leadData = JSON.parse(sessionStorage.getItem('bdcLeadData') || '{}');
+        var isEligible = sessionStorage.getItem('bdcIsEligible') === 'true';
         var hasSubmittedContact = false;
         var hasCompletedEligibility = false; // Tracks if user went through eligibility (pass or fail)
         var vapiEnabled = false; // Tracks if VAPI freeform chat is active
         var vapiClient = null; // VAPI client instance
+        
+        // Save leadData to sessionStorage whenever it changes
+        function saveLeadData() {
+            sessionStorage.setItem('bdcLeadData', JSON.stringify(leadData));
+            sessionStorage.setItem('bdcIsEligible', isEligible.toString());
+        }
         
         // AI CHAT Configuration
         // VAPI Assistant ID: 81592eff-5e9c-4c88-9991-de84c8844307
@@ -2007,6 +2013,9 @@
             // Reset chat messages
             document.getElementById('chatMessages').innerHTML = '';
             
+            // Capture VAPI chat before reset (if any)
+            captureAndSendVapiChat();
+            
             // Reset all state variables
             currentFlow = null;
             selectedUmbrella = null;
@@ -2016,6 +2025,8 @@
             hasSubmittedContact = false;
             hasCompletedEligibility = false;
             vapiEnabled = false;
+            sessionStorage.removeItem('bdcLeadData');
+            sessionStorage.removeItem('bdcIsEligible');
             
             // Lock chat input
             lockChatInput();
@@ -2039,6 +2050,9 @@
         
         // Regular reset (used when opening chat OR by Start Over button)
         function resetChat() {
+            // Capture VAPI chat before reset (if any)
+            captureAndSendVapiChat();
+            
             document.getElementById('chatMessages').innerHTML = '';
             currentFlow = null;
             selectedUmbrella = null;
@@ -2046,6 +2060,8 @@
             leadData = {};
             isEligible = false;
             hasSubmittedContact = false;
+            sessionStorage.removeItem('bdcLeadData');
+            sessionStorage.removeItem('bdcIsEligible');
             hasCompletedEligibility = false;
             vapiEnabled = false;
             lockChatInput();
@@ -2248,6 +2264,7 @@
             var umbrellaName = umbrella === 'multiUnit' ? 'Multi-Unit Business' : 'Critical Infrastructure Services';
             addUserMessage(umbrellaName);
             leadData.umbrella = umbrellaName;
+            saveLeadData();
             
             showTyping(function() {
                 if (umbrella === 'multiUnit') {
@@ -2273,6 +2290,7 @@
             };
             addUserMessage(structureNames[structure]);
             leadData.structure = structureNames[structure];
+            saveLeadData();
             
             showTyping(function() {
                 showMultiUnitVerticals();
@@ -2318,6 +2336,7 @@
             };
             addUserMessage(verticalNames[vertical]);
             leadData.vertical = verticalNames[vertical];
+            saveLeadData();
             
             showTyping(function() {
                 showEbitdaQuestion();
@@ -2340,6 +2359,7 @@
         function submitEbitda() {
             var val = parseInt(document.getElementById('ebitdaSlider').value);
             leadData.ebitda = val;
+            saveLeadData();
             addUserMessage(val >= 50 ? '$50M+ EBITDA' : '$' + val + 'M EBITDA');
             
             showTyping(function() {
@@ -2358,6 +2378,7 @@
         function selectLocation(location) {
             addUserMessage(location);
             leadData.location = location;
+            saveLeadData();
             
             showTyping(function() {
                 evaluateEligibility();
@@ -2374,6 +2395,7 @@
             if (ebitda >= 5 && inTargetVertical) {
                 isEligible = true;
                 leadData.leadType = 'Investment';
+                saveLeadData();
                 
                 addBotMessage('<strong>Great news!</strong> Based on what you\'ve shared, this looks like a strong potential fit for Bird Dog Capital.<br><br>• <strong>Industry:</strong> ' + leadData.umbrella + ' - ' + leadData.vertical + '<br>• <strong>EBITDA:</strong> $' + leadData.ebitda + 'M<br>• <strong>Location:</strong> ' + leadData.location + '<br><br>Let\'s get your contact details so we can schedule a confidential conversation.');
                 
@@ -2385,6 +2407,7 @@
             // $1M-$5M and right vertical = CONSULTING OPPORTUNITY
             } else if (ebitda >= 1 && ebitda < 5 && inTargetVertical) {
                 leadData.leadType = 'Consulting';
+                saveLeadData();
                 
                 var gap = 5 - ebitda;
                 addBotMessage('<strong>Thank you for sharing.</strong><br><br>At $' + ebitda + 'M EBITDA, you\'re not quite at our investment threshold yet, but you\'re in a great position for growth.<br><br>Our team offers <strong>consulting services</strong> to help businesses like yours optimize operations, improve unit economics, and position for future investment.<br><br>Let\'s connect to explore how we can help you bridge that $' + gap + 'M gap.');
@@ -2397,6 +2420,7 @@
             // <$1M and right vertical = TOO SMALL
             } else if (ebitda < 1 && inTargetVertical) {
                 leadData.leadType = 'Unqualified';
+                saveLeadData();
                 
                 addBotMessage('Thank you for your interest in Bird Dog Capital.<br><br>Our consulting and investment services typically work with businesses generating at least <strong>$1M in annual EBITDA</strong>.<br><br>We\'d encourage you to revisit us as your business grows. In the meantime, feel free to explore our approach and case studies.', [
                     { text: "Our approach", action: function() { showApproach(); } },
@@ -2407,6 +2431,7 @@
             // Wrong vertical (shouldn't reach here normally, but safety net)
             } else if (!inTargetVertical) {
                 leadData.leadType = 'Unqualified';
+                saveLeadData();
                 
                 addBotMessage('Thank you for your interest. Bird Dog Capital focuses specifically on:<br><br>• <strong>Multi-Unit:</strong> Franchisors and corporate-owned chains<br>• <strong>Critical Infrastructure:</strong> Telecom, power/electrical, and water/wastewater<br><br>Feel free to explore our approach and case studies.', [
                     { text: "Our approach", action: function() { showApproach(); } },
@@ -2754,6 +2779,7 @@
                 structure: structure || 'N/A',
                 vertical: vertical
             };
+            saveLeadData();
             
             // Send to n8n webhook
             var webhookData = {
