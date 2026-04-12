@@ -1551,7 +1551,13 @@
                     <h4>Bird Dog Capital</h4>
                     <p>Typically replies instantly</p>
                 </div>
-                <button class="chat-close" onclick="toggleChat()">
+                <button class="chat-reset" id="chatResetBtn" onclick="resetChat()" title="Start Over" style="display: none; background: none; border: none; color: white; cursor: pointer; padding: 8px; margin-right: 5px; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                        <path d="M3 3v5h5"/>
+                    </svg>
+                </button>
+                <button class="chat-close" onclick="closeAndResetChat()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M18 6L6 18M6 6l12 12"/>
                     </svg>
@@ -1886,6 +1892,9 @@
                 vapiContainer.style.display = 'block';
             }
             
+            // Show the reset button in header
+            showResetButton();
+            
             // Add a message telling user to use the AI chat
             addBotMessage('You now have access to our AI assistant. Click the button below to ask any questions about Bird Dog Capital.');
             
@@ -1929,6 +1938,52 @@
             }
         }
         
+        // Close chat AND fully reset everything (called by X button)
+        function closeAndResetChat() {
+            chatOpen = false;
+            var chatWindow = document.getElementById('chatWindow');
+            chatWindow.classList.remove('open');
+            
+            // Full reset including VAPI
+            fullReset();
+        }
+        
+        // Full reset - clears everything including VAPI access
+        function fullReset() {
+            // Reset chat messages
+            document.getElementById('chatMessages').innerHTML = '';
+            
+            // Reset all state variables
+            currentFlow = null;
+            selectedUmbrella = null;
+            selectedVertical = null;
+            leadData = {};
+            isEligible = false;
+            hasSubmittedContact = false;
+            hasCompletedEligibility = false;
+            vapiEnabled = false;
+            
+            // Lock chat input
+            lockChatInput();
+            
+            // Hide VAPI container, show old input
+            var vapiContainer = document.getElementById('vapiChatContainer');
+            var oldInput = document.getElementById('chatInputArea');
+            if (vapiContainer) vapiContainer.style.display = 'none';
+            if (oldInput) oldInput.style.display = 'flex';
+            
+            // Hide VAPI wrapper
+            var vapiWrapper = document.getElementById('vapi-wrapper');
+            if (vapiWrapper) vapiWrapper.style.display = 'none';
+            
+            // Hide reset button
+            var resetBtn = document.getElementById('chatResetBtn');
+            if (resetBtn) resetBtn.style.display = 'none';
+            
+            console.log('[BDC] Full reset completed');
+        }
+        
+        // Regular reset (used when opening chat)
         function resetChat() {
             document.getElementById('chatMessages').innerHTML = '';
             currentFlow = null;
@@ -1939,6 +1994,12 @@
             hasSubmittedContact = false;
             hasCompletedEligibility = false;
             lockChatInput();
+        }
+        
+        // Show reset button (called after qualification)
+        function showResetButton() {
+            var resetBtn = document.getElementById('chatResetBtn');
+            if (resetBtn) resetBtn.style.display = 'block';
         }
         
         function startChat() {
@@ -3335,7 +3396,9 @@
     <script>
         // Open VAPI chat when custom button is clicked
         function openVapiChat() {
-            // First make sure VAPI wrapper is visible
+            console.log('[BDC] openVapiChat called');
+            
+            // First make sure VAPI wrapper is visible and positioned
             var vapiWrapper = document.getElementById('vapi-wrapper');
             if (vapiWrapper) {
                 vapiWrapper.style.display = 'block';
@@ -3343,38 +3406,61 @@
                 vapiWrapper.style.bottom = '20px';
                 vapiWrapper.style.right = '20px';
                 vapiWrapper.style.zIndex = '10000';
+                console.log('[BDC] VAPI wrapper positioned');
             }
             
-            // Click the VAPI widget to open chat
+            // Wait for VAPI to render, then click
             setTimeout(function() {
-                var clickable = document.querySelector('.vapi-widget-wrapper div div');
-                if (clickable) {
-                    clickable.click();
-                    console.log('[BDC] VAPI chat opened');
-                } else {
-                    // Try alternative selector
-                    var wrapper = document.querySelector('.vapi-widget-wrapper');
-                    if (wrapper) {
-                        wrapper.click();
-                        console.log('[BDC] VAPI wrapper clicked');
-                    }
+                // Method 1: nested div div (worked for La Paletana)
+                var clickable1 = document.querySelector('.vapi-widget-wrapper div div');
+                if (clickable1) {
+                    clickable1.click();
+                    console.log('[BDC] Clicked: .vapi-widget-wrapper div div');
+                    return;
                 }
-            }, 200);
+                
+                // Method 2: any element with cursor pointer inside wrapper
+                var wrapper = document.querySelector('.vapi-widget-wrapper');
+                if (wrapper) {
+                    var allDivs = wrapper.querySelectorAll('div');
+                    for (var i = 0; i < allDivs.length; i++) {
+                        var style = window.getComputedStyle(allDivs[i]);
+                        if (style.cursor === 'pointer') {
+                            allDivs[i].click();
+                            console.log('[BDC] Clicked pointer element at index', i);
+                            return;
+                        }
+                    }
+                    // Fallback: click wrapper itself
+                    wrapper.click();
+                    console.log('[BDC] Clicked wrapper');
+                    return;
+                }
+                
+                // Method 3: vapi-widget element
+                var vapiEl = document.querySelector('vapi-widget');
+                if (vapiEl) {
+                    vapiEl.click();
+                    console.log('[BDC] Clicked vapi-widget element');
+                }
+                
+            }, 500);
         }
         
-        // Move VAPI widget into chat window after qualification
+        // Activate VAPI widget after qualification
         function activateVapiInChat() {
             var vapiWrapper = document.getElementById('vapi-wrapper');
-            var vapiSlot = document.getElementById('vapiWidgetSlot');
-            
-            if (vapiWrapper && vapiSlot) {
-                // Move the VAPI widget into the chat window
-                vapiSlot.appendChild(vapiWrapper);
-                console.log('[BDC] VAPI widget ready');
+            if (vapiWrapper) {
+                vapiWrapper.style.display = 'block';
+                vapiWrapper.style.position = 'fixed';
+                vapiWrapper.style.bottom = '20px';
+                vapiWrapper.style.right = '20px';
+                vapiWrapper.style.zIndex = '10000';
+                console.log('[BDC] VAPI widget activated and positioned');
             }
         }
         
-        // Override enableVapiChat to also activate VAPI in chat
+        // Override enableVapiChat to also activate VAPI
         var originalEnableVapiChat = enableVapiChat;
         enableVapiChat = function() {
             originalEnableVapiChat();
