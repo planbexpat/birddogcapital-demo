@@ -3685,6 +3685,28 @@
             window.addEventListener('beforeunload', function() {
                 captureAndSendVapiChat();
             });
+            
+            // Watch for End Chat and Reset button clicks inside VAPI widget
+            setTimeout(function() {
+                var vapiWidget = document.querySelector('vapi-widget');
+                if (vapiWidget) {
+                    vapiWidget.addEventListener('click', function(e) {
+                        var target = e.target;
+                        // Check if clicked element or its parent is End Chat or Reset button
+                        var isEndChat = target.textContent === 'End Chat' || 
+                                        target.title === 'End Chat' ||
+                                        (target.closest && target.closest('[title="End Chat"]'));
+                        var isReset = target.title === 'Reset conversation' ||
+                                      (target.closest && target.closest('[title="Reset conversation"]'));
+                        
+                        if (isEndChat || isReset) {
+                            console.log('[BDC] VAPI End Chat or Reset clicked - capturing chat');
+                            captureAndSendVapiChat();
+                        }
+                    });
+                    console.log('[BDC] VAPI button click listeners active');
+                }
+            }, 2000);
         }
         
         // Open VAPI chat when custom button is clicked
