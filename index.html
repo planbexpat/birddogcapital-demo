@@ -3702,6 +3702,16 @@
                         if (isEndChat || isReset) {
                             console.log('[BDC] VAPI End Chat or Reset clicked - capturing chat');
                             captureAndSendVapiChat();
+                            
+                            // If Reset, allow new conversation to be captured
+                            if (isReset) {
+                                setTimeout(function() {
+                                    vapiChatSent = false;
+                                    vapiChatMessages = [];
+                                    resetVapiInactivityTimer();
+                                    console.log('[BDC] VAPI Reset - ready for new conversation');
+                                }, 500);
+                            }
                         }
                     });
                     console.log('[BDC] VAPI button click listeners active');
