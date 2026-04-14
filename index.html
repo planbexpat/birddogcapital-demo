@@ -1925,6 +1925,115 @@
         var vapiEnabled = false; // Tracks if VAPI freeform chat is active
         var vapiClient = null; // VAPI client instance
         
+        // ============================================
+        // ANTI-SPAM: Cookie/Fingerprint Tracking
+        // ============================================
+        var BDC_COOKIE_NAME = 'bdc_visitor';
+        var BDC_SUBMISSION_LIMIT = 3; // Max submissions per visitor
+        var BDC_RESET_LIMIT = 5; // Max resets per visitor
+        var BDC_BLOCK_DURATION = 24 * 60 * 60 * 1000; // 24 hours in ms
+        
+        function getBdcCookie() {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.indexOf(BDC_COOKIE_NAME + '=') === 0) {
+                    try {
+                        return JSON.parse(decodeURIComponent(cookie.substring(BDC_COOKIE_NAME.length + 1)));
+                    } catch (e) {
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        function setBdcCookie(data) {
+            var expires = new Date();
+            expires.setTime(expires.getTime() + (365 * 24 * 60 * 60 * 1000)); // 1 year
+            document.cookie = BDC_COOKIE_NAME + '=' + encodeURIComponent(JSON.stringify(data)) + 
+                ';expires=' + expires.toUTCString() + ';path=/;SameSite=Lax';
+        }
+        
+        function initVisitorTracking() {
+            var visitor = getBdcCookie();
+            if (!visitor) {
+                visitor = {
+                    id: 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    firstVisit: Date.now(),
+                    submissions: 0,
+                    resets: 0,
+                    lastSubmission: null,
+                    lastReset: null,
+                    blocked: false,
+                    blockedUntil: null
+                };
+                setBdcCookie(visitor);
+            }
+            // Check if block has expired
+            if (visitor.blocked && visitor.blockedUntil && Date.now() > visitor.blockedUntil) {
+                visitor.blocked = false;
+                visitor.blockedUntil = null;
+                visitor.submissions = 0;
+                visitor.resets = 0;
+                setBdcCookie(visitor);
+            }
+            return visitor;
+        }
+        
+        function trackSubmission() {
+            var visitor = getBdcCookie() || initVisitorTracking();
+            visitor.submissions++;
+            visitor.lastSubmission = Date.now();
+            
+            // Block if too many submissions
+            if (visitor.submissions > BDC_SUBMISSION_LIMIT) {
+                visitor.blocked = true;
+                visitor.blockedUntil = Date.now() + BDC_BLOCK_DURATION;
+                console.log('[BDC] Visitor blocked for excessive submissions');
+            }
+            setBdcCookie(visitor);
+            return visitor;
+        }
+        
+        function trackReset() {
+            var visitor = getBdcCookie() || initVisitorTracking();
+            visitor.resets++;
+            visitor.lastReset = Date.now();
+            
+            // Block if too many resets
+            if (visitor.resets > BDC_RESET_LIMIT) {
+                visitor.blocked = true;
+                visitor.blockedUntil = Date.now() + BDC_BLOCK_DURATION;
+                console.log('[BDC] Visitor blocked for excessive resets');
+            }
+            setBdcCookie(visitor);
+            return visitor;
+        }
+        
+        function isVisitorBlocked() {
+            var visitor = getBdcCookie();
+            if (!visitor) return false;
+            if (visitor.blocked && visitor.blockedUntil && Date.now() > visitor.blockedUntil) {
+                // Block expired, reset
+                visitor.blocked = false;
+                visitor.blockedUntil = null;
+                visitor.submissions = 0;
+                visitor.resets = 0;
+                setBdcCookie(visitor);
+                return false;
+            }
+            return visitor.blocked;
+        }
+        
+        function getVisitorId() {
+            var visitor = getBdcCookie() || initVisitorTracking();
+            return visitor.id;
+        }
+        
+        // Initialize visitor tracking on page load
+        initVisitorTracking();
+        
         // Save leadData to sessionStorage whenever it changes
         function saveLeadData() {
             sessionStorage.setItem('bdcLeadData', JSON.stringify(leadData));
@@ -2054,6 +2163,16 @@
         
         // Regular reset (used when opening chat OR by Start Over button)
         function resetChat() {
+            // Track reset attempts
+            trackReset();
+            
+            // Check if visitor is now blocked
+            if (isVisitorBlocked()) {
+                document.getElementById('chatMessages').innerHTML = '';
+                addBotMessage('We\'ve noticed unusual activity from this browser. Please try again later or contact us directly at <a href="mailto:info@birddogcapital.com">info@birddogcapital.com</a>');
+                return;
+            }
+            
             // Capture VAPI chat before reset (if any)
             captureAndSendVapiChat();
             
@@ -2091,6 +2210,12 @@
         }
         
         function startChat() {
+            // Check if visitor is blocked
+            if (isVisitorBlocked()) {
+                addBotMessage('We\'ve noticed unusual activity from this browser. Please try again later or contact us directly at <a href="mailto:info@birddogcapital.com">info@birddogcapital.com</a>');
+                return;
+            }
+            
             addBotMessage('Hi! I\'m here to help you learn about Bird Dog Capital.<br><br><strong>How can I help you today?</strong>', [
                 { text: "I own a business", action: function() { showOwnerFlow(); } },
                 { text: "I'm a broker/advisor", action: function() { showBrokerFlow(); } },
@@ -2504,6 +2629,12 @@
                 
                 // CONSULTING CONTACT SUBMIT
         function submitConsultingContact() {
+            // Check if visitor is blocked
+            if (isVisitorBlocked()) {
+                alert('Too many submission attempts. Please try again later.');
+                return;
+            }
+            
             // Prevent double submission
             if (hasSubmittedContact) {
                 return;
@@ -2544,6 +2675,7 @@
             // Send to webhook
             var webhookData = {
                 timestamp: new Date().toISOString(),
+                visitor_id: getVisitorId(),
                 name: name,
                 email: email,
                 phone: phone,
@@ -2560,6 +2692,9 @@
                 source: 'Website Chat Widget',
                 status: 'New'
             };
+            
+            // Track this submission
+            trackSubmission();
             
             fetch('https://n8n.planbexpat.com/webhook/bdc-lead', {
                 method: 'POST',
@@ -2721,6 +2856,12 @@
             console.log('submitContact called');
             clearFormError();
             
+            // Check if visitor is blocked
+            if (isVisitorBlocked()) {
+                showFormError('Too many submission attempts. Please try again later.');
+                return;
+            }
+            
             // Prevent double submission
             if (hasSubmittedContact) {
                 console.log('Already submitted, returning');
@@ -2790,6 +2931,7 @@
             // Send to n8n webhook
             var webhookData = {
                 timestamp: new Date().toISOString(),
+                visitor_id: getVisitorId(),
                 name: name,
                 email: email,
                 phone: validation.formattedPhone || '',
@@ -2806,6 +2948,9 @@
                 source: 'Website Chat Widget',
                 status: 'New'
             };
+            
+            // Track this submission
+            trackSubmission();
             
             // POST to n8n webhook (fire and forget)
             fetch('https://n8n.planbexpat.com/webhook/bdc-lead', {
